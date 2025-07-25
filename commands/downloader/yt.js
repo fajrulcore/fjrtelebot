@@ -5,11 +5,10 @@ const { privat } = require("@/utils/helper");
 
 module.exports = {
   name: "yt",
-  description: "Download YouTube video/audio using yt-dlp",
+  description: "Download video/audio using yt-dlp based on source",
   async execute(bot, msg) {
     const chatId = msg.chat.id;
 
-    // Check if the chat is private or authorized
     if (!privat(chatId)) return;
 
     const text = msg.text || "";
@@ -18,7 +17,7 @@ module.exports = {
     if (args.length < 2) {
       return bot.sendMessage(
         chatId,
-        "Please provide a YouTube link after the command, for example:\n`/yt https://youtu.be/abc123`",
+        "Please provide a link after the command, for example:\n`/yt https://youtu.be/abc123`",
         { parse_mode: "Markdown" }
       );
     }
@@ -26,15 +25,28 @@ module.exports = {
     const url = args[1];
     const outputFolder = path.join(__dirname, "../../storage");
 
-    // Create the folder if it doesn't exist
     if (!fs.existsSync(outputFolder)) {
       fs.mkdirSync(outputFolder, { recursive: true });
     }
 
-    // Send initial message and store its ID
+    // Link type detection
+    const isYouTube = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//.test(url);
+    const isShorts = /(youtube\.com\/shorts\/)/.test(url);
+
+    // Format logic
+    let format = "best";
+    if (isYouTube) {
+      if (isShorts) {
+        format = "248"; // 1080x1920 vertical video (vp9, webm)
+      } else {
+        format = `'bestaudio[ext=webm]+bestvideo[height<=720][ext=webm]'`;
+      }
+    }
+
+    // Send initial status message
     const statusMessage = await bot.sendMessage(chatId, "Downloading the video, please wait...");
 
-    const cmd = `yt-dlp -f 'bestaudio[ext=webm]+bestvideo[height<=720][ext=webm]' -o "${outputFolder}/%(title)s.%(ext)s" "${url}"`;
+    const cmd = `yt-dlp -f ${format} -o "${outputFolder}/%(title)s.%(ext)s" "${url}"`;
 
     exec(cmd, async (error, stdout, stderr) => {
       if (error) {
