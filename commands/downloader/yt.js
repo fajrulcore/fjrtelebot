@@ -8,7 +8,6 @@ module.exports = {
   description: "Download video/audio using yt-dlp based on source",
   async execute(bot, msg) {
     const chatId = msg.chat.id;
-
     if (!privat(chatId)) return;
 
     const text = msg.text || "";
@@ -30,37 +29,42 @@ module.exports = {
     }
 
     // Link type detection
-    const isYouTube = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//.test(url);
+    const isYouTube = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//.test(
+      url
+    );
     const isShorts = /(youtube\.com\/shorts\/)/.test(url);
 
-    // Format logic
-    let format = "best";
-    if (isYouTube) {
-      if (isShorts) {
-        format = "248"; // 1080x1920 vertical video (vp9, webm)
-      } else {
-        format = `'bestaudio[ext=webm]+bestvideo[height<=720][ext=webm]'`;
-      }
+    // Format logic with escaped brackets
+    let format = "bestvideo[height<=720]+bestaudio";
+    if (isShorts) {
+      format = "bestvideo[height<=1920]+bestaudio";
     }
 
-    // Send initial status message
-    const statusMessage = await bot.sendMessage(chatId, "Downloading the video, please wait...");
+    const cmd = `yt-dlp -f "${format}" --no-mtime --restrict-filenames -o "${outputFolder}/%(title)s.%(ext)s" "${url}"`;
 
-    const cmd = `yt-dlp -f ${format} -o "${outputFolder}/%(title)s.%(ext)s" "${url}"`;
+    // Inform user
+    const statusMessage = await bot.sendMessage(
+      chatId,
+      "Downloading the video, please wait..."
+    );
 
     exec(cmd, async (error, stdout, stderr) => {
       if (error) {
         console.error(`Error: ${error.message}`);
+        console.error(`stderr: ${stderr}`);
         return bot.editMessageText(
-          `An error occurred while downloading:\n${error.message}`,
+          `An error occurred while downloading:\n\`${error.message}\``,
           {
             chat_id: chatId,
             message_id: statusMessage.message_id,
+            parse_mode: "Markdown",
           }
         );
       }
 
-      console.log(`Output: ${stdout}`);
+      console.log(`stdout:\n${stdout}`);
+      console.log(`stderr:\n${stderr}`);
+
       await bot.editMessageText(
         "✅ Download completed! The file has been saved in the *storage/* folder.",
         {
