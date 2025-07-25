@@ -35,9 +35,14 @@ module.exports = {
     const isShorts = /(youtube\.com\/shorts\/)/.test(url);
 
     // Format logic with escaped brackets
-    let format = "bestvideo[height<=720]+bestaudio";
-    if (isShorts) {
-      format = "bestvideo[height<=1920]+bestaudio";
+    let format = "bestvideo+bestaudio";
+
+    if (isYouTube) {
+      if (isShorts) {
+        format = "bestaudio[ext=webm]+bestvideo[height<=1920][ext=webm]";
+      } else {
+        format = "bestaudio[ext=webm]+bestvideo[height<=720][ext=webm]";
+      }
     }
 
     const cmd = `yt-dlp -f "${format}" --no-mtime --restrict-filenames -o "${outputFolder}/%(title)s.%(ext)s" "${url}"`;
