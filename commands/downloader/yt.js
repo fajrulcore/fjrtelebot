@@ -1,4 +1,6 @@
 const { exec } = require("child_process");
+const fs = require("fs");
+const path = require("path");
 const { privat } = require("@/utils/helper");
 
 module.exports = {
@@ -7,40 +9,38 @@ module.exports = {
   async execute(bot, msg) {
     const chatId = msg.chat.id;
 
-    // Cek apakah chat private atau diperbolehkan
     if (!privat(chatId)) return;
 
     const text = msg.text || "";
     const args = text.split(" ");
 
-    // Cek apakah ada link
     if (args.length < 2) {
-      return bot.sendMessage(chatId, "Mohon kirim link YouTube setelah command, contoh:\n`/yt https://youtu.be/abc123`", {
+      return bot.sendMessage(chatId, "Kirim link setelah command, contoh:\n`/yt https://youtu.be/abc123`", {
         parse_mode: "Markdown",
       });
     }
 
     const url = args[1];
+    const outputFolder = path.join(__dirname, "../../downloads");
 
-    // Kirim pesan bahwa proses sedang berjalan
-    bot.sendMessage(chatId, "Sedang memproses link, mohon tunggu...");
+    // Buat folder jika belum ada
+    if (!fs.existsSync(outputFolder)) {
+      fs.mkdirSync(outputFolder, { recursive: true });
+    }
 
-    // Eksekusi perintah yt-dlp
-    const cmd = `yt-dlp -f 'bestaudio[ext=webm]+bestvideo[height<=720][ext=webm]' -o "%(title)s.%(ext)s" "${url}"`;
+    bot.sendMessage(chatId, "Sedang mengunduh video, harap tunggu...");
+
+    const cmd = `yt-dlp -f 'bestaudio[ext=webm]+bestvideo[height<=720][ext=webm]' -o "${outputFolder}/%(title)s.%(ext)s" "${url}"`;
 
     exec(cmd, (error, stdout, stderr) => {
       if (error) {
         console.error(`Error: ${error.message}`);
-        return bot.sendMessage(chatId, `Terjadi kesalahan saat download:\n${error.message}`);
+        return bot.sendMessage(chatId, `Terjadi error saat unduh:\n${error.message}`);
       }
-      if (stderr) {
-        console.error(`Stderr: ${stderr}`);
-      }
-
       console.log(`Output: ${stdout}`);
-
-      // Kirim hasil ke pengguna (opsional: kirim file jika perlu)
-      bot.sendMessage(chatId, `Selesai mengunduh video.\n\nOutput:\n${stdout}`);
+      bot.sendMessage(chatId, `Unduhan selesai! File disimpan di folder *downloads/*`, {
+        parse_mode: "Markdown",
+      });
     });
   },
 };
