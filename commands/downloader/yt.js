@@ -21,7 +21,7 @@ module.exports = {
     }
 
     const url = args[1];
-    const outputFolder = path.join(__dirname, "../../downloads");
+    const outputFolder = path.join(__dirname, "../../storage");
 
     // Buat folder jika belum ada
     if (!fs.existsSync(outputFolder)) {
