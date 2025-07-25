@@ -22,7 +22,7 @@ module.exports = {
     }
 
     const url = args[1];
-    const outputFolder = path.join(__dirname, "../../storage");
+    const outputFolder = path.join(__dirname, "../../yt-dlp");
 
     if (!fs.existsSync(outputFolder)) {
       fs.mkdirSync(outputFolder, { recursive: true });
