@@ -15,7 +15,6 @@ module.exports = {
     const text = msg.text || "";
     const args = text.split(" ");
 
-    // Check if a link is provided
     if (args.length < 2) {
       return bot.sendMessage(
         chatId,
@@ -32,20 +31,32 @@ module.exports = {
       fs.mkdirSync(outputFolder, { recursive: true });
     }
 
-    bot.sendMessage(chatId, "Downloading the video, please wait...");
+    // Send initial message and store its ID
+    const statusMessage = await bot.sendMessage(chatId, "Downloading the video, please wait...");
 
     const cmd = `yt-dlp -f 'bestaudio[ext=webm]+bestvideo[height<=720][ext=webm]' -o "${outputFolder}/%(title)s.%(ext)s" "${url}"`;
 
-    exec(cmd, (error, stdout, stderr) => {
+    exec(cmd, async (error, stdout, stderr) => {
       if (error) {
         console.error(`Error: ${error.message}`);
-        return bot.sendMessage(chatId, `An error occurred while downloading:\n${error.message}`);
+        return bot.editMessageText(
+          `An error occurred while downloading:\n${error.message}`,
+          {
+            chat_id: chatId,
+            message_id: statusMessage.message_id,
+          }
+        );
       }
 
       console.log(`Output: ${stdout}`);
-      bot.sendMessage(chatId, `Download completed! The file has been saved in the *storage/* folder.`, {
-        parse_mode: "Markdown",
-      });
+      await bot.editMessageText(
+        "✅ Download completed! The file has been saved in the *storage/* folder.",
+        {
+          chat_id: chatId,
+          message_id: statusMessage.message_id,
+          parse_mode: "Markdown",
+        }
+      );
     });
   },
 };
