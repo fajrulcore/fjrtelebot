@@ -34,9 +34,6 @@ module.exports = {
     );
     const isShorts = /(youtube\.com\/shorts\/)/.test(url);
 
-    // Format logic with escaped brackets
-    let format = "bestvideo+bestaudio"; // default asumsi YouTube
-
     if (isYouTube) {
       if (isShorts) {
         format = "bestaudio[ext=webm]+bestvideo[height<=1920][ext=webm]";
