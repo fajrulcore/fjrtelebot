@@ -1,4 +1,4 @@
-const { exec } = require("child_process");
+const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const { privat } = require("@/utils/helper");
@@ -28,36 +28,52 @@ module.exports = {
       fs.mkdirSync(outputFolder, { recursive: true });
     }
 
-    // Link type detection
-    const isYouTube = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//.test(
-      url
-    );
+    const isYouTube = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//.test(url);
     const isShorts = /(youtube\.com\/shorts\/)/.test(url);
 
+    let format;
     if (isYouTube) {
-      if (isShorts) {
-        format = "bestaudio[ext=webm]+bestvideo[height<=1920][ext=webm]";
-      } else {
-        format = "bestaudio[ext=webm]+bestvideo[height<=720][ext=webm]";
-      }
+      format = isShorts
+        ? "bestaudio[ext=webm]+bestvideo[height<=1920][ext=webm]"
+        : "bestaudio[ext=webm]+bestvideo[height<=720][ext=webm]";
     } else {
       format = "best";
     }
 
-    const cmd = `yt-dlp -f "${format}" --sponsorblock-remove all --no-mtime --restrict-filenames -o "${outputFolder}/%(title)s.%(ext)s" "${url}"`;
+    const cmdArgs = [
+      "-f", format,
+      "--sponsorblock-remove", "all",
+      "--no-mtime",
+      "--restrict-filenames",
+      "-o", `${outputFolder}/%(title)s.%(ext)s`,
+      url
+    ];
 
-    // Inform user
-    const statusMessage = await bot.sendMessage(
-      chatId,
-      "Downloading the video, please wait..."
-    );
+    const statusMessage = await bot.sendMessage(chatId, "Downloading the video, please wait...");
 
-    exec(cmd, async (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error: ${error.message}`);
-        console.error(`stderr: ${stderr}`);
-        return bot.editMessageText(
-          `An error occurred while downloading:\n\`${error.message}\``,
+    const ytProcess = spawn("yt-dlp", cmdArgs);
+
+    ytProcess.stdout.on("data", (data) => {
+      console.log(`${data.toString()}`);
+    });
+
+    ytProcess.stderr.on("data", (data) => {
+      console.error(`${data.toString()}`);
+    });
+
+    ytProcess.on("close", async (code) => {
+      if (code === 0) {
+        await bot.editMessageText(
+          "✅ Download completed! The file has been saved in the *storage/* folder.",
+          {
+            chat_id: chatId,
+            message_id: statusMessage.message_id,
+            parse_mode: "Markdown",
+          }
+        );
+      } else {
+        await bot.editMessageText(
+          `❌ Download failed with exit code ${code}`,
           {
             chat_id: chatId,
             message_id: statusMessage.message_id,
@@ -65,18 +81,6 @@ module.exports = {
           }
         );
       }
-
-      console.log(`stdout:\n${stdout}`);
-      console.log(`stderr:\n${stderr}`);
-
-      await bot.editMessageText(
-        "✅ Download completed! The file has been saved in the *storage/* folder.",
-        {
-          chat_id: chatId,
-          message_id: statusMessage.message_id,
-          parse_mode: "Markdown",
-        }
-      );
     });
   },
 };
