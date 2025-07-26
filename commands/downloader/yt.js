@@ -44,7 +44,7 @@ module.exports = {
       format = "best";
     }
 
-    const cmd = `yt-dlp -f "${format}" --no-mtime --restrict-filenames -o "${outputFolder}/%(title)s.%(ext)s" "${url}"`;
+    const cmd = `yt-dlp -f "${format}" --sponsorblock-remove all --no-mtime --restrict-filenames -o "${outputFolder}/%(title)s.%(ext)s" "${url}"`;
 
     // Inform user
     const statusMessage = await bot.sendMessage(
