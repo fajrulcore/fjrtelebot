@@ -51,10 +51,18 @@ module.exports = {
 
     const statusMessage = await bot.sendMessage(chatId, "Downloading the video, please wait...");
 
+    let videoTitle = null;
+
     const ytProcess = spawn("yt-dlp", cmdArgs);
 
     ytProcess.stdout.on("data", (data) => {
-      console.log(`${data.toString()}`);
+      const output = data.toString();
+      console.log(output);
+
+      const match = output.match(/Destination:\s*(.+\/)?(.+)\.(webm|mp4|mkv|mp3|m4a)/i);
+      if (match && !videoTitle) {
+        videoTitle = match[2].replace(/_/g, " ");
+      }
     });
 
     ytProcess.stderr.on("data", (data) => {
@@ -63,14 +71,16 @@ module.exports = {
 
     ytProcess.on("close", async (code) => {
       if (code === 0) {
-        await bot.editMessageText(
-          "✅ Download completed! The file has been saved in the *storage/* folder.",
-          {
-            chat_id: chatId,
-            message_id: statusMessage.message_id,
-            parse_mode: "Markdown",
-          }
-        );
+        let message = "✅ Download completed! The file has been saved in the *storage/* folder.";
+        if (videoTitle) {
+          message += `\n\n🎬 Title: *${videoTitle}*`;
+        }
+
+        await bot.editMessageText(message, {
+          chat_id: chatId,
+          message_id: statusMessage.message_id,
+          parse_mode: "Markdown",
+        });
       } else {
         await bot.editMessageText(
           `❌ Download failed with exit code ${code}`,
