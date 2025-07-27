@@ -28,7 +28,9 @@ module.exports = {
       fs.mkdirSync(outputFolder, { recursive: true });
     }
 
-    const isYouTube = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//.test(url);
+    const isYouTube = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//.test(
+      url
+    );
     const isShorts = /(youtube\.com\/shorts\/)/.test(url);
 
     let format;
@@ -41,15 +43,21 @@ module.exports = {
     }
 
     const cmdArgs = [
-      "-f", format,
-      "--sponsorblock-remove", "all",
+      "-f",
+      format,
+      "--sponsorblock-remove",
+      "all",
       "--no-mtime",
       "--restrict-filenames",
-      "-o", `${outputFolder}/%(title)s.%(ext)s`,
-      url
+      "-o",
+      `${outputFolder}/%(title)s.%(ext)s`,
+      url,
     ];
 
-    const statusMessage = await bot.sendMessage(chatId, "Downloading the video, please wait...");
+    const statusMessage = await bot.sendMessage(
+      chatId,
+      "Downloading the video, please wait..."
+    );
 
     let videoTitle = null;
 
@@ -59,9 +67,14 @@ module.exports = {
       const output = data.toString();
       console.log(output);
 
-      const match = output.match(/Destination:\s*(.+\/)?(.+)\.(webm|mp4|mkv|mp3|m4a)/i);
+      const match = output.match(
+        /Destination:\s*(.+\/)?(.+)\.(webm|mp4|mkv|mp3|m4a)/i
+      );
       if (match && !videoTitle) {
-        videoTitle = match[2].replace(/_/g, " ");
+        videoTitle = match[2]
+          .replace(/\.f\d{2,4}$/, "") // remove .f251, .f140, etc
+          .replace(/_/g, " ")
+          .trim();
       }
     });
 
@@ -71,7 +84,8 @@ module.exports = {
 
     ytProcess.on("close", async (code) => {
       if (code === 0) {
-        let message = "✅ Download completed! The file has been saved in the *storage/* folder.";
+        let message =
+          "✅ Download completed! The file has been saved in the *storage/* folder.";
         if (videoTitle) {
           message += `\n\n🎬 Title: *${videoTitle}*`;
         }
@@ -82,14 +96,11 @@ module.exports = {
           parse_mode: "Markdown",
         });
       } else {
-        await bot.editMessageText(
-          `❌ Download failed with exit code ${code}`,
-          {
-            chat_id: chatId,
-            message_id: statusMessage.message_id,
-            parse_mode: "Markdown",
-          }
-        );
+        await bot.editMessageText(`❌ Download failed with exit code ${code}`, {
+          chat_id: chatId,
+          message_id: statusMessage.message_id,
+          parse_mode: "Markdown",
+        });
       }
     });
   },
