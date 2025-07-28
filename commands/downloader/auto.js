@@ -319,7 +319,10 @@ Downloads: ${data.stats?.download || "?"}`;
         );
         const data1 = res1.data?.result;
         if (!res1.data?.status || !data1)
-          throw new Error("API 1 returned an invalid response.");
+          throw new Error(
+            "API 1 (FlowFalcon - Facebook) returned an invalid response."
+          );
+
         await fbHandler1(data1);
         await deleteStatus();
         return;
@@ -336,7 +339,9 @@ Downloads: ${data.stats?.download || "?"}`;
           !Array.isArray(data1.data) ||
           data1.data.length === 0
         )
-          throw new Error("IG API 1 returned an invalid response.");
+          throw new Error(
+            "API 1 (Vapis - Instagram) returned an invalid response."
+          );
 
         await igHandler1(data1, bot, chatId);
         await deleteStatus();
@@ -351,7 +356,9 @@ Downloads: ${data.stats?.download || "?"}`;
       );
       const data1 = res1.data?.result?.data;
       if (!res1.data?.status || !data1)
-        throw new Error("TikTok API 1 returned an invalid response.");
+        throw new Error(
+          "API 1 (FlowFalcon - Tiktok) returned an invalid response."
+        );
       await handlerApi1(data1);
       await deleteStatus();
     } catch (e1) {
@@ -368,7 +375,9 @@ Downloads: ${data.stats?.download || "?"}`;
           );
           const result2 = res2.data?.result;
           if (!res2.data?.status || !result2?.media)
-            throw new Error("API 2 returned an invalid response.");
+            throw new Error(
+              "API 2 (Archive - Facebook) returned an invalid response."
+            );
           await fbHandler2(result2);
           await deleteStatus();
           return;
@@ -383,7 +392,9 @@ Downloads: ${data.stats?.download || "?"}`;
           );
           const data2 = res2.data;
           if (!data2?.status || !data2.result?.url?.length)
-            throw new Error("IG API 2 returned an invalid response.");
+            throw new Error(
+              "API 2 (Archive - Instagram) returned an invalid response."
+            );
           await igHandler2(data2);
           await deleteStatus();
           return;
@@ -397,7 +408,9 @@ Downloads: ${data.stats?.download || "?"}`;
         );
         const result2 = res2.data?.result;
         if (!res2.data?.status || !result2?.media)
-          throw new Error("TikTok API 2 returned an invalid response.");
+          throw new Error(
+            "API 2 (Archive - Tiktok) returned an invalid response."
+          );
         await handlerApi2(result2);
         await deleteStatus();
       } catch (e2) {
@@ -412,7 +425,9 @@ Downloads: ${data.stats?.download || "?"}`;
             );
             const result3 = res3.data?.data;
             if (!result3?.status || !result3?.sd_url)
-              throw new Error("API 3 returned an invalid response.");
+              throw new Error(
+                "API 3 (Vreden - Facebook) returned an invalid response."
+              );
             await fbHandler3(result3);
             await deleteStatus();
             return;
@@ -428,8 +443,9 @@ Downloads: ${data.stats?.download || "?"}`;
             const data3 = res3.data;
 
             if (data3?.status !== 200 || !data3?.result?.response?.status)
-              throw new Error("IG API 3 returned an invalid response.");
-
+              throw new Error(
+                "API 3 (Vreden - Instagram) returned an invalid response."
+              );
             await igHandler3(data3);
             await deleteStatus();
             return;
@@ -441,7 +457,9 @@ Downloads: ${data.stats?.download || "?"}`;
           );
           const result3 = res3.data?.result;
           if (!res3.data?.status || !result3)
-            throw new Error("TikTok API 3 returned an invalid response.");
+            throw new Error(
+              "API 3 (Vreden - Tiktok) returned an invalid response."
+            );
           await handlerApi3(result3);
           await deleteStatus();
         } catch (e3) {
