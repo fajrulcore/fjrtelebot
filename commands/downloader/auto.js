@@ -310,8 +310,7 @@ Downloads: ${data.stats?.download || "?"}`;
         const res1 = await axios.get(
           `${process.env.flowfalcon}/download/facebook?url=${encodeURIComponent(
             input
-          )}`,
-          { timeout: 8000 }
+          )}`
         );
         const data1 = res1.data?.result;
         if (!res1.data?.status || !data1)
