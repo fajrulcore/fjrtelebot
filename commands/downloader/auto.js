@@ -206,35 +206,37 @@ Downloads: ${data.stats?.download || "?"}`;
     };
 
     const igHandler1 = async (input, bot, chatId) => {
-      const mediaItems = Array.isArray(input)
-        ? input
-        : Array.isArray(input?.data)
-        ? input.data
-        : [];
+      const result = input?.result;
+      const urls = Array.isArray(result?.downloadUrl) ? result.downloadUrl : [];
 
-      if (mediaItems.length === 0) {
-        throw new Error("IG API 1 returned empty media array.");
+      if (urls.length === 0 || !result?.metadata) {
+        throw new Error("IG API 1 returned invalid or empty media.");
       }
 
-      const images = mediaItems.filter((i) => i.type === "image");
-      const videos = mediaItems.filter((i) => i.type === "video");
+      const isVideo = result.metadata.isVideo;
 
-      if (videos.length) {
-        await bot.sendVideo(chatId, videos[0].url);
+      if (isVideo) {
+        const videoUrl =
+          urls.find((url) => url && url.endsWith(".mp4")) || urls[0];
+        if (!videoUrl) throw new Error("No valid video URL found.");
+        await bot.sendVideo(chatId, videoUrl);
         return;
       }
 
-      if (images.length) {
-        const mediaGroup = images.slice(0, 10).map((img) => ({
-          type: "photo",
-          media: img.url,
-        }));
+      const photoUrls = urls.filter((url) => url);
 
+      if (photoUrls.length) {
+        const mediaGroup = photoUrls.slice(0, 10).map((img) => ({
+          type: "photo",
+          media: img,
+        }));
         await bot.sendMediaGroup(chatId, mediaGroup);
         return;
       }
 
-      throw new Error("IG API 1 returned unsupported media.");
+      throw new Error(
+        "IG API 1 returned unsupported media type or no valid URLs."
+      );
     };
 
     const igHandler2 = async (data) => {
@@ -330,17 +332,21 @@ Downloads: ${data.stats?.download || "?"}`;
 
       if (isInstagram) {
         const res1 = await axios.get(
-          `${process.env.vapis}/api/igdl?url=${encodeURIComponent(input)}`,
+          `${
+            process.env.nekorinn
+          }/downloader/instagram?url=${encodeURIComponent(input)}`,
           { timeout: 8000 }
         );
         const data1 = res1.data;
+
         if (
           !data1?.status ||
-          !Array.isArray(data1.data) ||
-          data1.data.length === 0
+          !data1.result ||
+          !Array.isArray(data1.result.downloadUrl) ||
+          data1.result.downloadUrl.length === 0
         )
           throw new Error(
-            "API 1 (Vapis - Instagram) returned an invalid response."
+            "API 1 (Nekorinn - Instagram) returned an invalid response."
           );
 
         await igHandler1(data1, bot, chatId);
