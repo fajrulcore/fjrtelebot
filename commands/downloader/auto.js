@@ -60,11 +60,9 @@ module.exports = {
     };
 
     const handlerApi1 = async (data) => {
-      const statsOnly = `Views: ${format(data.play_count)}\nComments: ${format(
-        data.comment_count
-      )}\nShares: ${format(data.share_count)}\nDownloads: ${format(
-        data.download_count
-      )}`;
+      const statsOnly = `Views: ${data.stats?.play || "0"}\nComments: ${
+        data.stats?.comment || "0"
+      }\nShares: ${data.stats?.share || "0"}`;
 
       if (Array.isArray(data.images) && data.images.length > 0) {
         const chunks = chunkArray(data.images, 10);
@@ -81,12 +79,9 @@ module.exports = {
         return;
       }
 
-      if (data.play) {
-        const caption = `${
-          data.duration > 0 ? `Duration: ${data.duration}s\n` : ""
-        }${statsOnly}`;
-        await bot.sendVideo(chatId, data.play, {
-          caption,
+      if (data.videoUrl) {
+        await bot.sendVideo(chatId, data.videoUrl, {
+          caption: statsOnly,
           parse_mode: "Markdown",
           supports_streaming: true,
         });
@@ -305,7 +300,6 @@ Downloads: ${data.stats?.download || "?"}`;
 
         return;
       }
-
       throw new Error("IG API 3 returned unsupported media.");
     };
 
@@ -355,16 +349,12 @@ Downloads: ${data.stats?.download || "?"}`;
       }
 
       const res1 = await axios.get(
-        `${process.env.flowfalcon}/download/tiktok?url=${encodeURIComponent(
+        `${process.env.nekorinn}/downloader/tikwm?url=${encodeURIComponent(
           input
         )}`,
         { timeout: 8000 }
       );
-      const data1 = res1.data?.result?.data;
-      if (!res1.data?.status || !data1)
-        throw new Error(
-          "API 1 (FlowFalcon - Tiktok) returned an invalid response."
-        );
+      const data1 = res1.data?.result;
       await handlerApi1(data1);
       await deleteStatus();
     } catch (e1) {
