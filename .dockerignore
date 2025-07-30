@@ -7,3 +7,4 @@ yt-dlp/
 .gitignore
 README.md
 autoupdate.sh
+yt.js
