@@ -173,8 +173,7 @@ Downloads: ${data.stats?.download || "?"}`;
     };
 
     const fbHandler1 = async (data) => {
-      const videoUrl = data.urls?.[0]; // get the first available video URL
-      console.log(videoUrl)
+      const videoUrl = data.urls?.[0];
       const durationMs = parseInt(data.duration || "0");
 
       if (!videoUrl) throw new Error("Video URL is not available.");
@@ -188,9 +187,9 @@ Downloads: ${data.stats?.download || "?"}`;
           ? `${minutes} minute${seconds > 0 ? ` ${seconds}s` : ""}`
           : `${seconds}s`;
 
-      await bot.sendVideo(chatId, videoUrl, {
-        caption: `Duration: ${durationText}`,
-      });
+      const message = `🎬 Facebook Video\n🔗 ${videoUrl}\n⏱ Duration: ${durationText}`;
+
+      await bot.sendMessage(chatId, message);
     };
 
     const fbHandler2 = async (data) => {
