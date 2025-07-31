@@ -173,18 +173,23 @@ Downloads: ${data.stats?.download || "?"}`;
     };
 
     const fbHandler1 = async (data) => {
-      const videoUrl = data.media?.video_hd;
-      const durationMs = parseInt(data.info?.duration || "0");
-      if (!videoUrl) throw new Error("HD video is not available.");
+      const videoUrl = data.urls?.[0]; // get the first available video URL
+      console.log(videoUrl)
+      const durationMs = parseInt(data.duration || "0");
+
+      if (!videoUrl) throw new Error("Video URL is not available.");
+
       const totalSeconds = Math.floor(durationMs / 1000);
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
+
       const durationText =
         minutes > 0
           ? `${minutes} minute${seconds > 0 ? ` ${seconds}s` : ""}`
           : `${seconds}s`;
+
       await bot.sendVideo(chatId, videoUrl, {
-        caption: "Duration: " + durationText,
+        caption: `Duration: ${durationText}`,
       });
     };
 
@@ -308,14 +313,16 @@ Downloads: ${data.stats?.download || "?"}`;
 
       if (isFacebook) {
         const res1 = await axios.get(
-          `${process.env.flowfalcon}/download/facebook?url=${encodeURIComponent(
+          `${process.env.siputzx}/api/d/facebook?url=${encodeURIComponent(
             input
           )}`
         );
-        const data1 = res1.data?.result;
-        if (!res1.data?.status || !data1)
+
+        const data1 = res1.data?.data;
+
+        if (!res1.data?.status || !data1 || !Array.isArray(data1.urls))
           throw new Error(
-            "API 1 (FlowFalcon - Facebook) returned an invalid response."
+            "API 1 (Siputzx - Facebook) returned an invalid response."
           );
 
         await fbHandler1(data1);
