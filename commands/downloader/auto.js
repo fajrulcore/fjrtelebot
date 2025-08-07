@@ -180,24 +180,8 @@ Downloads: ${data.stats?.download || "?"}`;
       if (!hdMp4Video?.url) {
         throw new Error("HD MP4 video URL is not available.");
       }
-
       const videoUrl = hdMp4Video.url;
-
-      const durationMs = parseInt(data.duration || "0");
-      const totalSeconds = Math.floor(durationMs / 1000);
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-
-      const durationText =
-        minutes > 0
-          ? `${minutes} minute${seconds > 0 ? ` ${seconds}s` : ""}`
-          : `${seconds}s`;
-
-      const caption = `🎬 Facebook Video\n⏱ Duration: ${durationText}`;
-
-      await bot.sendVideo(chatId, videoUrl, {
-        caption,
-      });
+      await bot.sendVideo(chatId, videoUrl);
     };
 
     const fbHandler2 = async (data) => {
