@@ -173,11 +173,17 @@ Downloads: ${data.stats?.download || "?"}`;
     };
 
     const fbHandler1 = async (data) => {
-      const videoUrl = data.urls?.[0];
+      const hdMp4Video = data.data?.find(
+        (item) => item.format === "mp4" && item.resolution === "HD"
+      );
+
+      if (!hdMp4Video?.url) {
+        throw new Error("HD MP4 video URL is not available.");
+      }
+
+      const videoUrl = hdMp4Video.url;
+
       const durationMs = parseInt(data.duration || "0");
-
-      if (!videoUrl) throw new Error("Video URL is not available.");
-
       const totalSeconds = Math.floor(durationMs / 1000);
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
@@ -187,9 +193,11 @@ Downloads: ${data.stats?.download || "?"}`;
           ? `${minutes} minute${seconds > 0 ? ` ${seconds}s` : ""}`
           : `${seconds}s`;
 
-      const message = `🎬 Facebook Video\n🔗 ${videoUrl}\n⏱ Duration: ${durationText}`;
+      const caption = `🎬 Facebook Video\n⏱ Duration: ${durationText}`;
 
-      await bot.sendMessage(chatId, message);
+      await bot.sendVideo(chatId, videoUrl, {
+        caption,
+      });
     };
 
     const fbHandler2 = async (data) => {
@@ -319,10 +327,11 @@ Downloads: ${data.stats?.download || "?"}`;
 
         const data1 = res1.data?.data;
 
-        if (!res1.data?.status || !data1 || !Array.isArray(data1.urls))
+        if (!res1.data?.status || !data1 || !Array.isArray(data1.data)) {
           throw new Error(
             "API 1 (Siputzx - Facebook) returned an invalid response."
           );
+        }
 
         await fbHandler1(data1);
         await deleteStatus();
