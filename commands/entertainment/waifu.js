@@ -8,25 +8,26 @@ module.exports = {
     const chatId = msg.chat.id;
     if (!isAuthorized(chatId)) return;
 
-    const fallbackToWaifuim = async () => {
+    const fallbackToWaifuPics = async () => {
       try {
         const response = await axios.get(`${process.env.waifupics}/sfw/waifu`);
         await bot.sendPhoto(chatId, response.data.url);
+        console.log("✅ Fallback API (waifupics) SUKSES");
       } catch (err) {
-        console.error("Fallback API also failed:", err.message);
+        console.error("❌ Fallback API juga gagal:", err.message);
         bot.sendMessage(chatId, "Failed to fetch image from both APIs.");
       }
     };
 
     try {
-      const res = await axios.get(
-        `${process.env.waifuim}/search?included_tags=waifu`
-      );
-      const imageUrl = res.data.images[0].url;
+      const res = await axios.get(`${process.env.waifuim}/search?included_tags=waifu`);
+      const imageUrl = res.data.images[0]?.url;
+      if (!imageUrl) throw new Error("No image URL from primary API");
       await bot.sendPhoto(chatId, imageUrl);
+      console.log("✅ Primary API (waifuim) SUKSES");
     } catch (error) {
-      console.error("Primary API failed:", error.message);
-      await fallbackToWaifuim(); // Run fallback
+      console.warn("⚠️ Primary API gagal:", error.message);
+      await fallbackToWaifuPics();
     }
   },
 };
