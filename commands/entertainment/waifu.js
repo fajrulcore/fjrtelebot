@@ -1,4 +1,4 @@
-const { privat } = require("@/utils/helper");
+const { isAuthorized } = require("@/utils/helper");
 const axios = require("axios");
 
 module.exports = {
@@ -6,13 +6,12 @@ module.exports = {
   description: "Get a random waifu image from two fallback APIs",
   async execute(bot, msg) {
     const chatId = msg.chat.id;
-    if (!privat(chatId)) return;
+    if (!isAuthorized(chatId)) return;
 
     const fallbackToWaifuim = async () => {
       try {
-        const res = await axios.get(`${process.env.waifuim}/search?included_tags=waifu`);
-        const imageUrl = res.data.images[0].url;
-        await bot.sendPhoto(chatId, imageUrl);
+        const response = await axios.get(`${process.env.waifupics}/sfw/waifu`);
+        await bot.sendPhoto(chatId, response.data.url);
       } catch (err) {
         console.error("Fallback API also failed:", err.message);
         bot.sendMessage(chatId, "Failed to fetch image from both APIs.");
@@ -20,8 +19,11 @@ module.exports = {
     };
 
     try {
-      const response = await axios.get(`${process.env.waifupics}/sfw/waifu`);
-      await bot.sendPhoto(chatId, response.data.url);
+      const res = await axios.get(
+        `${process.env.waifuim}/search?included_tags=waifu`
+      );
+      const imageUrl = res.data.images[0].url;
+      await bot.sendPhoto(chatId, imageUrl);
     } catch (error) {
       console.error("Primary API failed:", error.message);
       await fallbackToWaifuim(); // Run fallback
