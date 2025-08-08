@@ -8,39 +8,64 @@ module.exports = {
     const chatId = msg.chat.id;
     if (!isAuthorized(chatId)) return;
 
-    const handleWaifuPics = async () => {
-      try {
-        const resPrimary = await axios.get(
-          `${process.env.waifupics}/sfw/waifu`,
-          { timeout: 8000 }
-        );
-        const imageUrlPrimary = resPrimary.data?.url;
-        if (!imageUrlPrimary) throw new Error("No image URL from WaifuPics");
+    let statusMessage = null;
 
-        await bot.sendPhoto(chatId, imageUrlPrimary);
-        console.log("✅ Primary API (WaifuPics) sukses");
-      } catch (err) {
-        console.warn("⚠️ Primary API gagal:", err.message);
-        await handleWaifuIm();
+    const sendOrEditStatus = async (text) => {
+      if (!statusMessage) {
+        statusMessage = await bot.sendMessage(chatId, text);
+      } else {
+        await bot.editMessageText(text, {
+          chat_id: chatId,
+          message_id: statusMessage.message_id,
+        });
       }
     };
 
-    const handleWaifuIm = async () => {
-      try {
-        const resFallback = await axios.get(
-          `${process.env.waifuim}/search?included_tags=waifu`,
-          { timeout: 8000 }
-        );
-        const imageUrlFallback = resFallback.data?.images?.[0]?.url;
-        if (!imageUrlFallback) throw new Error("No image URL from WaifuIM");
-
-        await bot.sendPhoto(chatId, imageUrlFallback);
-        console.log("✅ Fallback API (WaifuIM) sukses");
-      } catch (err) {
-        console.error("❌ Fallback API juga gagal:", err.message);
-        await bot.sendMessage(chatId, "Failed to fetch image from both APIs.");
+    const deleteStatus = async () => {
+      if (statusMessage) {
+        await new Promise((res) => setTimeout(res, 1000));
+        await bot.deleteMessage(chatId, statusMessage.message_id);
+        statusMessage = null;
       }
     };
-    await handleWaifuPics();
+
+    const handleWaifuPics = async (url) => {
+      await bot.sendPhoto(chatId, url);
+      console.log("✅ Primary API (WaifuPics) success");
+    };
+
+    const handleWaifuIm = async (url) => {
+      await bot.sendPhoto(chatId, url);
+      console.log("✅ Fallback API (WaifuIM) success");
+    };
+
+    try {
+      // API 1 → WaifuPics
+      await sendOrEditStatus("📡 Trying API 1 (WaifuPics)...");
+      const res1 = await axios.get(`${process.env.waifupics}/sfw/waifu`, { timeout: 8000 });
+      const imageUrl1 = res1.data?.url;
+      if (!imageUrl1) throw new Error("API 1 returned an invalid response.");
+
+      await handleWaifuPics(imageUrl1);
+      await deleteStatus();
+
+    } catch (err1) {
+      console.error("❌ API 1 failed:", err1.message);
+
+      try {
+        // API 2 → WaifuIM
+        await sendOrEditStatus("📡 Trying API 2 (WaifuIM)...");
+        const res2 = await axios.get(`${process.env.waifuim}/search?included_tags=waifu`, { timeout: 8000 });
+        const imageUrl2 = res2.data?.images?.[0]?.url;
+        if (!imageUrl2) throw new Error("API 2 returned an invalid response.");
+
+        await handleWaifuIm(imageUrl2);
+        await deleteStatus();
+
+      } catch (err2) {
+        console.error("❌ API 2 failed:", err2.message);
+        await sendOrEditStatus("❌ Failed to fetch images from both APIs.");
+      }
+    }
   },
 };
