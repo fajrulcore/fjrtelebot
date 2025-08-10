@@ -46,13 +46,17 @@ _Your chat history is saved per user._`,
       if (!history.length) {
         return bot.sendMessage(chatId, "There is no chat history yet.");
       }
-
-      const formatted = history
-        .map((h) => `(${h.role}): ${h.content}`)
-        .join("\n\n")
-        .slice(-4096);
-
-      return bot.sendMessage(chatId, formatted, { parse_mode: "Markdown" });
+      const buffer = Buffer.from(JSON.stringify(history, null, 2), "utf-8");
+      await bot.sendDocument(
+        chatId,
+        buffer,
+        {},
+        {
+          filename: "history.json",
+          contentType: "application/json",
+        }
+      );
+      return;
     }
 
     if (input.toLowerCase() === "new") {
