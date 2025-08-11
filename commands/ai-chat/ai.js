@@ -11,18 +11,15 @@ module.exports = {
   description:
     "Chat with AI using Groq (supports memory, /ai history & /ai new)",
   async execute(bot, msg) {
-    // ID untuk balasan pesan di Telegram
     const replyChatId = msg.chat.id;
 
-    // Cek apakah grup ini diizinkan (hanya untuk chat grup)
     if (!isAuthorized(replyChatId)) return;
 
-    // ID untuk database (histori)
     let dbChatId;
     if (msg.chat.type === "private") {
-      dbChatId = msg.from.id; // private → user ID
+      dbChatId = msg.from.id;
     } else {
-      dbChatId = `${msg.chat.id}:${msg.from.id}`; // group:user ID
+      dbChatId = `${msg.chat.id}:${msg.from.id}`;
     }
 
     const text = msg.text?.trim();
