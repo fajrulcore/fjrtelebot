@@ -16,7 +16,7 @@ module.exports = {
     }
 
     try {
-      const apiUrl = `https://api.vreden.my.id/api/ssweb?url=${encodeURIComponent(input)}&type=tablet`;
+      const apiUrl = `${process.env.vreden}/api/ssweb?url=${encodeURIComponent(input)}&type=tablet`;
 
       const res = await axios.get(apiUrl, { responseType: "arraybuffer" });
 
