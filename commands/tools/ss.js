@@ -1,5 +1,5 @@
 const axios = require("axios");
-const { privat } = require("@/utils/helper");
+const { isAuthorized } = require("@/utils/helper");
 
 module.exports = {
   name: "ss",
@@ -7,7 +7,7 @@ module.exports = {
   async execute(bot, msg) {
     const chatId = msg.chat.id;
 
-    if (!privat(chatId)) return;
+    if (!isAuthorized(chatId)) return;
 
     const input = msg.text?.split(" ").slice(1).join(" ").trim();
 
