@@ -48,9 +48,9 @@ pnpm install
 # or: npm install / yarn install
 ```
 
-### 3. Copy and Configure `.env`
-Buat file `.env` berdasarkan `.env.example` yang tersedia, lalu isi dengan informasi yang dibutuhkan seperti token bot, API keys, dan konfigurasi database.  
-Jangan membagikan file `.env` ke publik.
+### 3. Configure Environment Variables
+Create a `.env` file based on the provided `.env.example` and fill in the required information such as bot token, API keys, and database configuration.  
+**Do not share your `.env` file publicly.**
 
 ```bash
 cp .env.example .env
@@ -65,16 +65,16 @@ pnpm start
 
 ## 💡 Bot Command Examples
 
-| Command           | Function                            |
-|------------------|-------------------------------------|
-| `/ai <prompt>`   | Ask anything to AI                  |
-| `/auto_on`       | Enable auto-reply mode              |
-| `/auto_off`      | Disable auto-reply mode             |
-| `/waifu`         | Send a random waifu image           |
-| `/sholat`        | Show prayer times                   |
-| `/balance`       | Display user balance                |
-| `/addbalance`    | Add balance to a user               |
-| `/duck <query>`  | Search info using DuckDuckGo        |
+| Command           | Description                         |
+|-------------------|-------------------------------------|
+| `/ai <prompt>`    | Ask anything to AI                  |
+| `/auto_on`        | Enable auto-reply mode              |
+| `/auto_off`       | Disable auto-reply mode             |
+| `/waifu`          | Send a random waifu image           |
+| `/sholat`         | Show prayer times                   |
+| `/balance`        | Display user balance                |
+| `/addbalance`     | Add balance to a user               |
+| `/duck <query>`   | Search information using DuckDuckGo |
 
 ## ✅ Main Dependencies
 
@@ -88,4 +88,4 @@ pnpm start
 ## 🤝 Contributing
 
 Pull requests are welcome!  
-Please keep the folder structure modular and follow standard formatting.
+Please maintain the modular folder structure and follow standard formatting.
