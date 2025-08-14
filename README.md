@@ -49,6 +49,9 @@ pnpm install
 ```
 
 ### 3. Copy and Configure `.env`
+Buat file `.env` berdasarkan `.env.example` yang tersedia, lalu isi dengan informasi yang dibutuhkan seperti token bot, API keys, dan konfigurasi database.  
+Jangan membagikan file `.env` ke publik.
+
 ```bash
 cp .env.example .env
 nano .env
@@ -60,38 +63,18 @@ pnpm start
 # or: node index.js
 ```
 
-## 🧩 `.env` Configuration
-
-Fill in the variables in your `.env` file with your bot token and API keys.
-
-Example:
-```
-TOKEN=123456789:ABCdefGhIjKlMnOpQrStUvWxYz
-PRIVATE=123456789
-GC=-987654321,123456789
-SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_KEY=your-supabase-service-role-key
-WAIFU_API_URL=
-GROQ_API_KEY=
-diioffc=
-archive=
-vreden=
-vapis=
-myquran=
-```
-
 ## 💡 Bot Command Examples
 
 | Command           | Function                            |
 |------------------|-------------------------------------|
 | `/ai <prompt>`   | Ask anything to AI                  |
-| `/auto_on`        | Enable auto-reply mode              |
-| `/auto_off`        | Disable auto-reply mode              |
-| `/waifu`          | Send a random waifu image           |
-| `/sholat`         | Show prayer times                   |
-| `/balance`        | Display user balance                |
-| `/addbalance`     | Add balance to a user               |
-| `/duck <query>`   | Search info using DuckDuckGo        |
+| `/auto_on`       | Enable auto-reply mode              |
+| `/auto_off`      | Disable auto-reply mode             |
+| `/waifu`         | Send a random waifu image           |
+| `/sholat`        | Show prayer times                   |
+| `/balance`       | Display user balance                |
+| `/addbalance`    | Add balance to a user               |
+| `/duck <query>`  | Search info using DuckDuckGo        |
 
 ## ✅ Main Dependencies
 
