@@ -10,12 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Send Discord notification
-        uses: Ilshidur/action-discord@v2
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          message: |
-            🚀 Push baru ke **${{ github.repository }}**
-            • Branch: `${{ github.ref_name }}`
-            • Commit: `${{ github.event.head_commit.message }}`
-            • Author: `${{ github.event.head_commit.author.name }}`
-            • Link: ${{ github.event.head_commit.url }}
+        run: |
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{\"content\": \"🚀 Push baru ke **${{ github.repository }}**\n• Branch: \`${{ github.ref_name }}\`\n• Commit: \`${{ github.event.head_commit.message }}\`\n• Author: \`${{ github.event.head_commit.author.name }}\`\n• Link: ${{ github.event.head_commit.url }}\"}" \
+               ${{ secrets.DISCORD_WEBHOOK }}
