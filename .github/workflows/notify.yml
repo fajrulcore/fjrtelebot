@@ -8,7 +8,6 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
 
     env:
       TOKEN: ${{ secrets.TOKEN }}
@@ -33,7 +32,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 22
+          node-version: 20
 
       - name: Install pnpm
         run: npm install -g pnpm
@@ -41,9 +40,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run bot
+      - name: Run bot for 5 minutes
         run: |
           pnpm run start &
           BOT_PID=$!
           sleep 300
-          kill $BOT_PID
+          kill $BOT_PID || true
