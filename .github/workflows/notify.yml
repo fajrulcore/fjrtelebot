@@ -42,4 +42,8 @@ jobs:
         run: pnpm install
 
       - name: Run bot
-        run: pnpm run start
+        run: |
+    pnpm run start &
+    BOT_PID=$!
+    sleep 300
+    kill $BOT_PID
