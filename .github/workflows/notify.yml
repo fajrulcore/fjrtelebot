@@ -1,17 +1,45 @@
-name: Notify Discord on Push
+name: Run Bot (5 Minutes)
 
 on:
   push:
     branches:
       - main
-      
+
 jobs:
-  notify:
+  run-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      TOKEN: ${{ secrets.TOKEN }}
+      PRIVATE: ${{ secrets.PRIVATE }}
+      GC: ${{ secrets.GC }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      diioffc: ${{ secrets.diioffc }}
+      archive: ${{ secrets.archive }}
+      vreden: ${{ secrets.vreden }}
+      vapis: ${{ secrets.vapis }}
+      myquran: ${{ secrets.myquran }}
+      siputzx: ${{ secrets.siputzx }}
+      waifuim: ${{ secrets.waifuim }}
+      waifupics: ${{ secrets.waifupics }}
+
     steps:
-      - name: Send Discord notification
-        run: |
-          curl -H "Content-Type: application/json" \
-               -X POST \
-               -d "{\"content\": \"🚀 New push to **${{ github.repository }}**\n• Branch: \`${{ github.ref_name }}\`\n• Commit: \`${{ github.event.head_commit.message }}\`\n• Author: \`${{ github.event.head_commit.author.name }}\`\n• Link: ${{ github.event.head_commit.url }}\"}" \
-               "${{ secrets.DISCORD_WEBHOOK }}"
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run bot
+        run: pnpm run start
