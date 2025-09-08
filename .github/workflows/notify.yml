@@ -1,9 +1,14 @@
-name: Run Bot (5 Minutes)
+name: Run Bot (6 Hours)
 
 on:
   push:
     branches:
       - main
+  schedule:
+    - cron: '0 0 * * *'   # 00:00
+    - cron: '0 6 * * *'   # 06:00
+    - cron: '0 12 * * *'  # 12:00
+    - cron: '0 18 * * *'  # 18:00
 
 jobs:
   run-bot:
@@ -40,9 +45,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run bot for 5h 50m
+      - name: Run bot for 6 hours
         run: |
           pnpm run start &
           BOT_PID=$!
-          sleep 21000
+          sleep 21600   # 6 hours in seconds
           kill $BOT_PID || true
