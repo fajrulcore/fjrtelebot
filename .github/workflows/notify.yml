@@ -1,9 +1,7 @@
 name: Run Bot (24 Hours)
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
   schedule:
     - cron: '0 0 * * *'
     - cron: '0 6 * * *'
@@ -49,5 +47,5 @@ jobs:
         run: |
           pnpm run start &
           BOT_PID=$!
-          sleep 21600   # 6 hours in seconds
+          sleep 21600   # 6 hours
           kill $BOT_PID || true
