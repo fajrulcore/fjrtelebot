@@ -1,48 +1,13 @@
-name: Run Bot (24 Hours)
+name: Cron Test
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: "*/2 * * * *"
   workflow_dispatch:
 
 jobs:
-  run-bot:
+  cron-test:
     runs-on: ubuntu-latest
-
-    env:
-      TOKEN: ${{ secrets.TOKEN }}
-      PRIVATE: ${{ secrets.PRIVATE }}
-      GC: ${{ secrets.GC }}
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-      diioffc: ${{ secrets.diioffc }}
-      archive: ${{ secrets.archive }}
-      vreden: ${{ secrets.vreden }}
-      vapis: ${{ secrets.vapis }}
-      myquran: ${{ secrets.myquran }}
-      siputzx: ${{ secrets.siputzx }}
-      waifuim: ${{ secrets.waifuim }}
-      waifupics: ${{ secrets.waifupics }}
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 22
-
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Run bot for 6 hours
-        run: |
-          pnpm run start &
-          BOT_PID=$!
-          sleep 21600   # 6 hours
-          kill $BOT_PID || true
+      - name: Print current time
+        run: echo "🕒 Cron triggered at $(date)"
