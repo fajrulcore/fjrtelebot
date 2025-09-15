@@ -3,8 +3,8 @@ name: Cleanup old workflow runs
 on:
   push:
     branches:
-      - main   # hanya jalan kalau ada commit di branch main
-  workflow_dispatch: # tetap bisa dijalankan manual
+      - main   # jalan setiap ada commit di branch main
+  workflow_dispatch: # tetap bisa dijalankan manual juga
 
 jobs:
   cleanup:
@@ -13,7 +13,7 @@ jobs:
       - name: Delete old workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}   # pakai PAT biar aman
           repository: ${{ github.repository }}
-          retain_days: 0            # hapus semua tanpa hitung hari
-          keep_minimum_runs: 2      # sisakan 2 run terakhir
+          retain_days: 0                    # hapus semua tanpa batas hari
+          keep_minimum_runs: 5              # sisakan 5 run terakhir
