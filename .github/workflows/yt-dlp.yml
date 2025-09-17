@@ -1,9 +1,10 @@
-name: Test yt-dlp
+name: Test yt-dlp Binary
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   run-yt-dlp:
@@ -13,13 +14,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Install yt-dlp
-        run: pip install yt-dlp
+      - name: Install yt-dlp (binary)
+        run: |
+          sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp
+          sudo chmod a+rx /usr/local/bin/yt-dlp
 
       - name: Check yt-dlp version
         run: yt-dlp --version
