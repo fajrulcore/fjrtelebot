@@ -1,0 +1,25 @@
+name: Test yt-dlp
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  run-yt-dlp:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install yt-dlp
+        run: pip install yt-dlp
+
+      - name: Check yt-dlp version
+        run: yt-dlp --version
