@@ -1,4 +1,4 @@
-name: Run Bot (6 Hours)
+name: Run Bot (24 Hours)
 
 on:
   push:
@@ -33,10 +33,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 22
 
@@ -45,6 +45,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: Install yt-dlp (binary)
+        run: |
+          sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp
+          sudo chmod a+rx /usr/local/bin/yt-dlp
+          yt-dlp --version
 
       - name: Run bot for 6h
         run: |
