@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      TOKEN: ${{ secrets.TOKEN }}
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
       PRIVATE: ${{ secrets.PRIVATE }}
       GC: ${{ secrets.GC }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
