@@ -1,0 +1,11 @@
+name: Hello World
+
+on:
+  workflow_dispatch: # Bisa dijalankan manual dari tab Actions
+
+jobs:
+  say-hello:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print Hello
+        run: echo "Hello World"
