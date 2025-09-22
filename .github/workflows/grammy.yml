@@ -6,10 +6,7 @@ on:
       - migrate-grammy
   schedule:
     - cron: '0 */5 * * *'
-
-concurrency:
-  group: fjrtelebotgrammy
-  cancel-in-progress: true
+  workflow_dispatch:
 
 jobs:
   run-bot:
