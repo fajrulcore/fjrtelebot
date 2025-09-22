@@ -4,12 +4,13 @@ const { isAuthorized, privat } = require("@/utils/helper");
 module.exports = {
   name: "cekmodel",
   description: "Check which model is currently in use by your role",
-  async execute(bot, msg) {
-    const chatId = msg.chat.id;
-    const messageId = msg.message_id;
+  async execute(ctx) {
+    const chatId = ctx.chat.id;
+    const messageId = ctx.message?.message_id;
+
     setTimeout(async () => {
       try {
-        await bot.deleteMessage(chatId, messageId);
+        if (messageId) await ctx.deleteMessage(messageId);
       } catch (err) {
         console.error("Failed to delete user message:", err.message);
       }
@@ -23,7 +24,7 @@ module.exports = {
       const modelPriv = userModelSelection.privat || "Not set";
       const modelAuth = userModelSelection.authorized || "Not set";
 
-      return bot.sendMessage(chatId,
+      return ctx.reply(
         `🔐 *Model Status (Owner View)*\n\n` +
         `• 👑 Privat Model: *${modelPriv}*\n` +
         `• 👥 Authorized Model: *${modelAuth}*`,
@@ -32,7 +33,7 @@ module.exports = {
     }
 
     const model = getModelByRole(chatId) || "Not set";
-    return bot.sendMessage(chatId,
+    return ctx.reply(
       `🔍 Current model for *authorized* users:\n*${model}*`,
       { parse_mode: "Markdown" }
     );

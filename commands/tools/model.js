@@ -4,9 +4,9 @@ const { setModel } = require("@/utils/modelSelect");
 module.exports = {
   name: "model",
   description: "Choose and switch Groq model",
-  async execute(bot, msg) {
-    const chatId = msg.chat.id;
 
+  async execute(ctx) {
+    const chatId = ctx.chat.id;
     if (!isAuthorized(chatId)) return;
 
     const modelChoices = [
@@ -30,7 +30,6 @@ module.exports = {
     ];
 
     const listText = modelChoices.map((m) => `${m.label}. ${m.id}`).join("\n");
-
     const perRow = 5;
     const buttons = [];
     for (let i = 0; i < modelChoices.length; i += perRow) {
@@ -42,62 +41,37 @@ module.exports = {
       );
     }
 
-    const sentMsg = await bot.sendMessage(
-      chatId,
-      `🔧 *Choose the model you want to use:*\n\n${listText}`,
-      {
-        parse_mode: "Markdown",
-        reply_markup: {
-          inline_keyboard: buttons,
-        },
-      }
-    );
+    const sentMsg = await ctx.reply(`🔧 *Choose the model you want to use:*\n\n${listText}`, {
+      parse_mode: "Markdown",
+      reply_markup: { inline_keyboard: buttons },
+    });
 
-    setTimeout(() => {
-      bot.deleteMessage(chatId, msg.message_id).catch(() => {});
-    }, 1000);
-
-    setTimeout(() => {
-      bot.deleteMessage(chatId, sentMsg.message_id).catch(() => {});
-    }, 30000);
+    // hapus pesan user dan menu otomatis
+    setTimeout(() => ctx.deleteMessage(ctx.message.message_id).catch(() => {}), 1000);
+    setTimeout(() => ctx.deleteMessage(sentMsg.message_id).catch(() => {}), 30000);
   },
 
-  async handleCallback(bot, query) {
-    const chatId = query.message.chat.id;
-    const data = query.data;
+  async handleCallback(ctx) {
+    const chatId = ctx.chat.id;
+    const data = ctx.callbackQuery.data;
     const modelId = data.split(":")[1];
-
     const role = privat(chatId) ? "privat" : "authorized";
 
     try {
-      const sentMsg = await bot.sendMessage(
-        chatId,
-        `✅ Model for *${role}* updated to:\n*${modelId}*`,
-        {
-          parse_mode: "Markdown",
-        }
-      );
+      const sentMsg = await ctx.reply(`✅ Model for *${role}* updated to:\n*${modelId}*`, {
+        parse_mode: "Markdown",
+      });
 
-      setTimeout(() => {
-        bot.deleteMessage(chatId, query.message.message_id).catch(() => {});
-      }, 1000);
-
-      setTimeout(() => {
-        bot.deleteMessage(chatId, sentMsg.message_id).catch(() => {});
-      }, 30000);
+      // hapus pesan lama dan konfirmasi otomatis
+      setTimeout(() => ctx.deleteMessage(ctx.callbackQuery.message.message_id).catch(() => {}), 1000);
+      setTimeout(() => ctx.deleteMessage(sentMsg.message_id).catch(() => {}), 30000);
 
       setModel(role, modelId);
-    } catch (error) {
-      const errMsg = await bot.sendMessage(
-        chatId,
-        `❌ Failed to update model: ${error.message}`
-      );
-
-      setTimeout(() => {
-        bot.deleteMessage(chatId, errMsg.message_id).catch(() => {});
-      }, 30000);
+    } catch (err) {
+      const errMsg = await ctx.reply(`❌ Failed to update model: ${err.message}`);
+      setTimeout(() => ctx.deleteMessage(errMsg.message_id).catch(() => {}), 30000);
     }
 
-    await bot.answerCallbackQuery(query.id);
+    await ctx.answerCallbackQuery();
   },
 };

@@ -1,38 +1,37 @@
+// commands/tebakkalimat.js
 const axios = require("axios");
 const { isAuthorized } = require("@/utils/helper");
-
-// store active sentence guessing games per chat
-const activeSentenceGuess = {};
+const { setGame, getGame, clearGame } = require("@/utils/games");
 
 module.exports = {
   name: "tebakkalimat",
   description: "Sentence guessing game",
-  async execute(bot, msg) {
-    const chatId = msg.chat.id;
-    const text = (msg.text || "").trim().toLowerCase();
+  async execute(ctx, args) {
+    const chatId = ctx.chat.id;
     if (!isAuthorized(chatId)) return;
 
+    const subcommand = (args[0] || "").toLowerCase();
+
     // 🔑 handle surrender
-    if (text === "/tebakkalimat surrender") {
-      if (!activeSentenceGuess[chatId]) {
-        return bot.sendMessage(chatId, "⚠️ No Sentence Guess game is currently running in this chat.");
+    if (subcommand === "surrender") {
+      const game = getGame(chatId, "tebakkalimat");
+      if (!game) {
+        return ctx.reply(
+          "⚠️ No Sentence Guess game is currently running in this chat."
+        );
       }
 
-      const { answer } = activeSentenceGuess[chatId];
-      await bot.sendMessage(
-        chatId,
-        `🏳️ Game ended. The missing word was *${answer}*`,
-        { parse_mode: "Markdown" }
-      );
+      await ctx.reply(`🏳️ Game ended. The missing word was *${game.answer}*`, {
+        parse_mode: "Markdown",
+      });
 
-      delete activeSentenceGuess[chatId];
+      clearGame(chatId, "tebakkalimat");
       return;
     }
 
-    // prevent multiple games at once
-    if (activeSentenceGuess[chatId]) {
-      return bot.sendMessage(
-        chatId,
+    // prevent multiple games
+    if (getGame(chatId, "tebakkalimat")) {
+      return ctx.reply(
         "⚠️ A Sentence Guess game is already running in this chat. Please finish it or surrender first."
       );
     }
@@ -40,7 +39,9 @@ module.exports = {
     try {
       const res = await axios.get(
         `${process.env.siputzx}/api/games/tebakkalimat`,
-        { timeout: 8000 }
+        {
+          timeout: 8000,
+        }
       );
 
       const result = res.data;
@@ -48,41 +49,17 @@ module.exports = {
         const question = result.data.soal;
         const answer = result.data.jawaban;
 
-        activeSentenceGuess[chatId] = { answer };
+        setGame(chatId, "tebakkalimat", { answer });
 
-        await bot.sendMessage(
-          chatId,
-          `✍️ *Fill in the missing word:*\n\n${question}`,
-          { parse_mode: "Markdown" }
-        );
-
-        // listener for answers
-        const listener = async (answerMsg) => {
-          if (answerMsg.chat.id !== chatId) return;
-          if (!answerMsg.text) return;
-
-          const userAnswer = answerMsg.text.trim().toLowerCase();
-          const correctAnswer = answer.toLowerCase();
-
-          if (userAnswer === correctAnswer) {
-            await bot.sendMessage(
-              chatId,
-              `✅ Correct! ${answerMsg.from.first_name} got it right!\nThe missing word is *${answer}*`,
-              { parse_mode: "Markdown" }
-            );
-
-            delete activeSentenceGuess[chatId];
-            bot.removeListener("message", listener);
-          }
-        };
-
-        bot.on("message", listener);
+        await ctx.reply(`✍️ *Fill in the missing word:*\n\n${question}`, {
+          parse_mode: "Markdown",
+        });
       } else {
-        bot.sendMessage(chatId, "⚠️ Failed to fetch Sentence Guess question from the API.");
+        ctx.reply("⚠️ Failed to fetch Sentence Guess question from the API.");
       }
     } catch (error) {
       console.error("Sentence Guess Error:", error.message);
-      bot.sendMessage(chatId, "❌ An error occurred while fetching the question.");
+      ctx.reply("❌ An error occurred while fetching the question.");
     }
   },
 };

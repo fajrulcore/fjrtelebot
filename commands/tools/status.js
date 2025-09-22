@@ -54,14 +54,14 @@ module.exports = {
     }
   },
 
-  execute(bot, msg) {
-    const chatId = msg.chat.id;
+  async execute(ctx) {
+    const chatId = ctx.chat.id;
 
     if (
       !(
-        (msg.chat.type === "private" && privat(msg.chat.id)) ||
-        (msg.chat.type !== "private" &&
-          (privat(msg.from.id) || isAuthorized(msg.from.id)))
+        (ctx.chat.type === "private" && privat(ctx.chat.id)) ||
+        (ctx.chat.type !== "private" &&
+          (privat(ctx.from.id) || isAuthorized(ctx.from.id)))
       )
     )
       return;
@@ -85,8 +85,9 @@ module.exports = {
 • RSS: ${formatBytes(mem.rss)}
 • Heap: ${formatBytes(mem.heapUsed)} / ${formatBytes(mem.heapTotal)}
 `;
+
     try {
-      bot.sendMessage(chatId, message);
+      await ctx.api.sendMessage(chatId, message);
     } catch (err) {
       console.error("Failed to send status:", err);
     }

@@ -1,16 +1,18 @@
 const { isAuthorized } = require("@/utils/helper");
 const axios = require("axios");
+const { InputFile } = require("grammy");
 
 module.exports = {
   name: "ss",
   description: "Take website screenshot using Vreden API (with fallback to DIIOFFC)",
-  async execute(bot, msg) {
-    const chatId = msg.chat.id;
+  async execute(ctx) {
+    const chatId = ctx.chat.id;
+
     if (!isAuthorized(chatId)) return;
 
-    let input = msg.text?.split(" ").slice(1).join(" ").trim();
+    let input = ctx.message.text?.split(" ").slice(1).join(" ").trim();
     if (!input) {
-      return bot.sendMessage(
+      return ctx.api.sendMessage(
         chatId,
         "❌ Please provide a website URL.\n\nExample: ss https://example.com",
         { parse_mode: "Markdown" }
@@ -18,31 +20,29 @@ module.exports = {
     }
 
     // Auto delete input message
-    await bot.deleteMessage(chatId, msg.message_id);
+    await ctx.api.deleteMessage(chatId, ctx.message.message_id);
 
     let statusMessage = null;
 
     const sendOrEditStatus = async (text) => {
       if (!statusMessage) {
-        statusMessage = await bot.sendMessage(chatId, text);
+        statusMessage = await ctx.api.sendMessage(chatId, text);
       } else {
-        await bot.editMessageText(text, {
-          chat_id: chatId,
-          message_id: statusMessage.message_id,
-        });
+        await ctx.api.editMessageText(chatId, statusMessage.message_id, text);
       }
     };
 
     const deleteStatus = async () => {
       if (statusMessage) {
         await new Promise((res) => setTimeout(res, 1000));
-        await bot.deleteMessage(chatId, statusMessage.message_id);
+        await ctx.api.deleteMessage(chatId, statusMessage.message_id);
         statusMessage = null;
       }
     };
 
     const handleScreenshot = async (buffer) => {
-      await bot.sendPhoto(chatId, buffer);
+      // Gunakan InputFile untuk mengirim buffer
+      await ctx.api.sendPhoto(chatId, new InputFile(buffer, "screenshot.png"));
     };
 
     const screenshotVreden = async (url) => {
@@ -70,7 +70,6 @@ module.exports = {
       console.log("✅ Primary API (Vreden) success");
     } catch (err1) {
       console.error("❌ API1 failed:", err1.message);
-
       try {
         await sendOrEditStatus("📡 Trying API2 (DIIOFFC)...");
         const buffer2 = await screenshotDiioffc(input);

@@ -1,40 +1,34 @@
 const axios = require("axios");
 const { isAuthorized } = require("@/utils/helper");
-
-// store active games per chat
-const activeGames = {};
+const { setGame, getGame, clearGame } = require("@/utils/games");
 
 module.exports = {
   name: "whoami",
   description: "Who Am I guessing game",
-  async execute(bot, msg) {
-    const chatId = msg.chat.id;
-    const text = (msg.text || "").trim().toLowerCase();
+  async execute(ctx) {
+    const chatId = ctx.chat.id;
+    const text = (ctx.message?.text || "").trim().toLowerCase();
     if (!isAuthorized(chatId)) return;
 
-    // 🔑 handle surrender directly (skip creating new game)
+    // 🔑 handle surrender
     if (text === "/whoami surrender") {
-      if (!activeGames[chatId]) {
-        return bot.sendMessage(chatId, "⚠️ No game is currently running in this chat.");
+      const currentGame = getGame(chatId, "whoami");
+      if (!currentGame) {
+        return ctx.reply("⚠️ No Who Am I game is currently running in this chat.");
       }
 
-      const { answer } = activeGames[chatId];
-      await bot.sendMessage(
-        chatId,
-        `🏳️ Game ended. The correct answer was *${answer}*`,
+      await ctx.reply(
+        `🏳️ Game ended. The correct answer was *${currentGame.answer}*`,
         { parse_mode: "Markdown" }
       );
 
-      delete activeGames[chatId];
-      return; // stop here
+      clearGame(chatId, "whoami");
+      return;
     }
 
-    // if already running, block new game
-    if (activeGames[chatId]) {
-      return bot.sendMessage(
-        chatId,
-        "⚠️ A game is already running in this chat."
-      );
+    // prevent multiple games
+    if (getGame(chatId, "whoami")) {
+      return ctx.reply("⚠️ A Who Am I game is already running in this chat.");
     }
 
     try {
@@ -44,45 +38,23 @@ module.exports = {
       );
 
       const result = res.data;
+      console.log("WhoAmI API result:", result);
 
-      if (result?.status && result.data) {
+      if ((result?.status === true || result?.status === "true") && result.data) {
         const question = result.data.soal;
         const answer = result.data.jawaban;
+        console.log(answer)
 
-        activeGames[chatId] = { answer };
+        setGame(chatId, "whoami", { answer });
 
-        await bot.sendMessage(
-          chatId,
-          question,
-          { parse_mode: "Markdown" }
-        );
-
-        const listener = async (answerMsg) => {
-          if (answerMsg.chat.id !== chatId) return;
-          if (!answerMsg.text) return;
-
-          const userAnswer = answerMsg.text.trim().toLowerCase();
-          const correctAnswer = answer.toLowerCase();
-
-          if (userAnswer === correctAnswer) {
-            await bot.sendMessage(
-              chatId,
-              `✅ Correct! ${answerMsg.from.first_name} got it right!\nThe answer is *${answer}*`,
-              { parse_mode: "Markdown" }
-            );
-
-            delete activeGames[chatId];
-            bot.removeListener("message", listener);
-          }
-        };
-
-        bot.on("message", listener);
+        await ctx.reply(question, { parse_mode: "Markdown" });
       } else {
-        bot.sendMessage(chatId, "⚠️ Failed to fetch the question from the API.");
+        console.log("Invalid WhoAmI API response:", result);
+        ctx.reply("⚠️ Failed to fetch the question from the API.");
       }
     } catch (error) {
-      console.error(error);
-      bot.sendMessage(chatId, "❌ An error occurred while fetching the question.");
+      console.error("WhoAmI Error:", error.message);
+      ctx.reply("❌ An error occurred while fetching the question.");
     }
   },
 };

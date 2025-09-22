@@ -5,8 +5,8 @@ module.exports = {
   name: "sholat",
   description: "Displays today's prayer times in WIB (Jakarta timezone)",
 
-  async execute(bot, msg) {
-    const chatId = msg.chat.id;
+  async execute(ctx) {
+    const chatId = ctx.chat.id;
     if (!isAuthorized(chatId)) return;
 
     try {
@@ -15,11 +15,8 @@ module.exports = {
       const apiUrl = `${process.env.myquran}/v2/sholat/jadwal/1635/${year}/${month}/${day}`;
       const response = await axios.get(apiUrl);
 
-      if (!response.data || !response.data.data || !response.data.data.jadwal) {
-        return bot.sendMessage(
-          chatId,
-          "⚠️ Schedule data not found or the API is currently unavailable."
-        );
+      if (!response.data?.data?.jadwal) {
+        return ctx.reply("⚠️ Schedule data not found or the API is currently unavailable.");
       }
 
       const { lokasi: location, daerah: region, jadwal: schedule } = response.data.data;
@@ -54,10 +51,7 @@ module.exports = {
       }
 
       if (!nextPrayer) {
-        nextPrayer = {
-          name: "Next Imsak",
-          time: convertToMinutes(schedule.imsak) + 24 * 60, // tomorrow's imsak
-        };
+        nextPrayer = { name: "Next Imsak", time: convertToMinutes(schedule.imsak) + 24 * 60 };
       }
 
       if (!lastPrayer) {
@@ -71,9 +65,7 @@ module.exports = {
         if (minutes >= 60) {
           const hours = Math.floor(minutes / 60);
           const mins = minutes % 60;
-          return mins === 0
-            ? `${hours} hour`
-            : `${hours} hour ${mins} minute`;
+          return mins === 0 ? `${hours} hour` : `${hours} hour ${mins} minute`;
         }
         return `${minutes} minute`;
       };
@@ -102,12 +94,12 @@ module.exports = {
 
 ${additionalInfo}`;
 
-      return bot.sendMessage(chatId, message);
+      return ctx.reply(message);
     } catch (error) {
       if (error.response && error.response.status !== 200) {
-        return bot.sendMessage(chatId, "⚠️ Data not found.");
+        return ctx.reply("⚠️ Data not found.");
       }
-      return bot.sendMessage(chatId, `⚠️ An error occurred: ${error.message}`);
+      return ctx.reply(`⚠️ An error occurred: ${error.message}`);
     }
   },
 };

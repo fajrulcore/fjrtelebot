@@ -21,7 +21,6 @@ function getCommandsByCategory(commandsPath) {
 const exclude = {
   categories: ["downloader"],          // hide kategori downloader
   commands: {
-    // contoh kalau mau hide sebagian
     downloader: ["auto", "ytm", "yt"], 
   }
 };
@@ -36,10 +35,10 @@ function formatCategoryName(name) {
 module.exports = {
   name: "menu",
   description: "Show available commands",
-  execute(bot, msg) {
-    const chatId = msg.chat.id;
+  async execute(ctx) {
+    const chatId = ctx.chat.id;
     if (!privat(chatId)) {
-      return bot.sendMessage(chatId, "You don't have permission.");
+      return ctx.reply("You don't have permission.");
     }
 
     const commandsPath = path.join(process.cwd(), "commands");
@@ -47,7 +46,6 @@ module.exports = {
 
     let message = "📌 *Command Menu*\n\n";
     for (const [category, cmds] of Object.entries(commandsByCategory)) {
-      // skip kalau kategori masuk blacklist
       if (exclude.categories.includes(category)) continue;
 
       message += `*${formatCategoryName(category)}*\n`;
@@ -59,6 +57,6 @@ module.exports = {
       message += "\n";
     }
 
-    bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
+    await ctx.reply(message, { parse_mode: "Markdown" });
   },
 };

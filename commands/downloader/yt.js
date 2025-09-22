@@ -6,16 +6,15 @@ const { privat } = require("@/utils/helper");
 module.exports = {
   name: "yt",
   description: "Download video/audio using yt-dlp based on source",
-  async execute(bot, msg) {
-    const chatId = msg.chat.id;
+  async execute(ctx) {
+    const chatId = ctx.chat.id;
     if (!privat(chatId)) return;
 
-    const text = msg.text || "";
+    const text = ctx.message.text || "";
     const args = text.split(" ");
 
     if (args.length < 2) {
-      return bot.sendMessage(
-        chatId,
+      return ctx.reply(
         "Please provide a link after the command, for example:\n`/yt https://youtu.be/abc123`",
         { parse_mode: "Markdown" }
       );
@@ -28,9 +27,7 @@ module.exports = {
       fs.mkdirSync(outputFolder, { recursive: true });
     }
 
-    const isYouTube = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//.test(
-      url
-    );
+    const isYouTube = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//.test(url);
     const isShorts = /(youtube\.com\/shorts\/)/.test(url);
 
     let format;
@@ -54,10 +51,7 @@ module.exports = {
       url,
     ];
 
-    const statusMessage = await bot.sendMessage(
-      chatId,
-      "Downloading the video, please wait..."
-    );
+    const statusMessage = await ctx.reply("Downloading the video, please wait...");
 
     let videoTitle = null;
 
@@ -90,17 +84,19 @@ module.exports = {
           message += `\n\n🎬 Title: *${videoTitle}*`;
         }
 
-        await bot.editMessageText(message, {
-          chat_id: chatId,
-          message_id: statusMessage.message_id,
-          parse_mode: "Markdown",
-        });
+        await ctx.api.editMessageText(
+          chatId,
+          statusMessage.message_id,
+          message,
+          { parse_mode: "Markdown" }
+        );
       } else {
-        await bot.editMessageText(`❌ Download failed with exit code ${code}`, {
-          chat_id: chatId,
-          message_id: statusMessage.message_id,
-          parse_mode: "Markdown",
-        });
+        await ctx.api.editMessageText(
+          chatId,
+          statusMessage.message_id,
+          `❌ Download failed with exit code ${code}`,
+          { parse_mode: "Markdown" }
+        );
       }
     });
   },

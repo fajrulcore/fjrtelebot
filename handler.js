@@ -1,9 +1,10 @@
 const fs = require("fs");
 const path = require("path");
+const { checkAnswer } = require("@/utils/games");
 
 const commands = new Map();
 
-// 🔁 Recursively load all command files from folders and subfolders
+// 🔁 Load semua command
 function loadCommands(dir) {
   const files = fs.readdirSync(dir);
   for (const file of files) {
@@ -14,7 +15,6 @@ function loadCommands(dir) {
       loadCommands(fullPath);
     } else if (file.endsWith(".js")) {
       const command = require(fullPath);
-
       if (command.name && typeof command.execute === "function") {
         commands.set(command.name, command);
       }
@@ -22,32 +22,36 @@ function loadCommands(dir) {
   }
 }
 
-// 🔃 Load all commands on startup
 loadCommands(path.join(__dirname, "commands"));
 
-// 🔧 Handle normal messages (text)
-async function handleMessage(bot, msg) {
-  if (!msg.text) return;
+// 🔧 Handle pesan
+async function handleMessage(ctx) {
+  if (!ctx.message?.text) return;
+  const text = ctx.message.text;
 
-  if (msg.text.startsWith("/")) {
-    return handleCommand(bot, msg); // If message is a command
+  // Kalau command
+  if (text.startsWith("/")) {
+    return handleCommand(ctx);
   }
 
-  // If it's not a command, try auto detection (e.g., TikTok links)
+  // Auto detection
   const autoHandler = commands.get("auto");
   if (autoHandler) {
     try {
-      await autoHandler.execute(bot, msg);
+      await autoHandler.execute(ctx);
     } catch (err) {
       console.error("❌ Auto handler error:", err.message);
     }
   }
+
+  // 🔎 Cek jawaban game
+  await checkAnswer(ctx);
 }
 
-// 🛠️ Handle /commands (e.g. /start, /tt)
-function handleCommand(bot, msg) {
-  const text = msg.text;
-  if (!text || !text.startsWith("/")) return;
+// 🛠️ Handle command
+function handleCommand(ctx) {
+  const text = ctx.message.text;
+  if (!text.startsWith("/")) return;
 
   const args = text.slice(1).trim().split(/ +/);
   const commandName = args.shift().toLowerCase();
@@ -55,28 +59,38 @@ function handleCommand(bot, msg) {
   if (!command) return;
 
   try {
-    command.execute(bot, msg, args);
+    command.execute(ctx, args);
   } catch (err) {
     console.error(`Error in command "${commandName}"`, err);
-    bot.sendMessage(msg.chat.id, "An error occurred while executing the command.");
+    ctx.reply("⚠️ Terjadi error saat menjalankan command.");
   }
 }
 
-// 🎯 Handle Inline Button Callback Queries
-function handleCallback(bot, query) {
-  const data = query.data;
-  const [commandPrefix] = data.split(":");
+// 🎯 Handle callback
+async function handleCallback(ctx) {
+  const query = ctx.callbackQuery;
+  if (!query) return;
 
+  const data = query.data;
+  if (!data) return;
+
+  const [commandPrefix] = data.split(":");
   const command = commands.get(commandPrefix);
+
   if (!command || typeof command.handleCallback !== "function") {
-    return bot.answerCallbackQuery(query.id, { text: "Unrecognized action." });
+    return ctx.answerCallbackQuery({ text: "❌ Aksi tidak dikenali." });
   }
 
   try {
-    command.handleCallback(bot, query);
+    // Pastikan query.message ada sebelum diteruskan
+    if (!query.message) {
+      return ctx.answerCallbackQuery({ text: "⚠️ Cannot handle inline message." });
+    }
+
+    await command.handleCallback(ctx, query);
   } catch (err) {
     console.error(`Error in callback "${data}"`, err);
-    bot.answerCallbackQuery(query.id, { text: "An error occurred while processing the action." });
+    ctx.answerCallbackQuery({ text: "⚠️ Terjadi error saat memproses aksi." });
   }
 }
 

@@ -5,28 +5,29 @@ const {
 } = require("@/utils/groq");
 
 const { isAuthorized, privat } = require("@/utils/helper");
+const { InputFile } = require("grammy");
 
 module.exports = {
   name: "ai",
   description:
     "Chat with AI using Groq (supports memory, /ai history & /ai new)",
-  async execute(bot, msg) {
-    const replyChatId = msg.chat.id;
+
+  async execute(ctx, args) {
+    const replyChatId = ctx.chat.id;
 
     if (!isAuthorized(replyChatId)) return;
 
+    // ID untuk penyimpanan history
     let dbChatId;
-    if (msg.chat.type === "private") {
-      dbChatId = msg.from.id;
+    if (ctx.chat.type === "private") {
+      dbChatId = ctx.from.id;
     } else {
-      dbChatId = `${msg.chat.id}:${msg.from.id}`;
+      dbChatId = `${ctx.chat.id}:${ctx.from.id}`;
     }
 
-    const text = msg.text?.trim();
-
+    const text = ctx.message.text?.trim();
     if (!text || text === "/ai") {
-      return bot.sendMessage(
-        replyChatId,
+      return ctx.reply(
         `*Welcome to AI Chat*
 
 Type your question after \`/ai\`, for example:
@@ -42,63 +43,56 @@ _Your chat history is saved per user (and per group if in a group)._`,
     }
 
     const modelId = privat(replyChatId) ? 1 : 2;
-
-    const args = text.split(" ").slice(1);
     const input = args.join(" ");
 
+    // 🗂️ /ai history
     if (input.toLowerCase() === "history") {
       const history = getChatHistory(dbChatId);
       if (!history.length) {
-        await bot.sendMessage(replyChatId, "There is no chat history yet.");
+        await ctx.reply("There is no chat history yet.");
       } else {
         const buffer = Buffer.from(JSON.stringify(history, null, 2), "utf-8");
-        await bot.sendDocument(
-          replyChatId,
-          buffer,
-          {},
-          { filename: "history.json", contentType: "application/json" }
-        );
+        await ctx.replyWithDocument(new InputFile(buffer, "history.json"));
       }
 
       setTimeout(() => {
-        bot.deleteMessage(replyChatId, msg.message_id).catch(() => {});
+        ctx.api.deleteMessage(replyChatId, ctx.message.message_id).catch(() => {});
       }, 1000);
 
       return;
     }
 
+    // 🔄 /ai new
     if (input.toLowerCase() === "new") {
       resetChat(dbChatId);
-      const sentMsg = await bot.sendMessage(
-        replyChatId,
-        "The conversation has been reset."
-      );
+      const sentMsg = await ctx.reply("The conversation has been reset.");
 
       setTimeout(() => {
-        bot.deleteMessage(replyChatId, msg.message_id).catch(() => {});
+        ctx.api.deleteMessage(replyChatId, ctx.message.message_id).catch(() => {});
       }, 1000);
 
       setTimeout(() => {
-        bot.deleteMessage(replyChatId, sentMsg.message_id).catch(() => {});
+        ctx.api.deleteMessage(replyChatId, sentMsg.message_id).catch(() => {});
       }, 5000);
 
       return;
     }
 
+    // 🤖 Chat ke Groq
     try {
       const response = await sendMessageToGroq(dbChatId, input, modelId);
-      if (!response) return bot.sendMessage(replyChatId, "Empty reply.");
+      if (!response) return ctx.reply("Empty reply.");
 
       if (response.length > 4096) {
         for (let i = 0; i < response.length; i += 4096) {
-          await bot.sendMessage(replyChatId, response.slice(i, i + 4096));
+          await ctx.reply(response.slice(i, i + 4096));
         }
       } else {
-        bot.sendMessage(replyChatId, response, { parse_mode: "Markdown" });
+        ctx.reply(response, { parse_mode: "Markdown" });
       }
     } catch (err) {
       console.error("AI Error:", err);
-      bot.sendMessage(replyChatId, "An error occurred while processing the request.");
+      ctx.reply("An error occurred while processing the request.");
     }
   },
 };

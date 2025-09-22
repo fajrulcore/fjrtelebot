@@ -3,17 +3,22 @@ const axios = require("axios");
 
 module.exports = {
   name: "waifuim",
-  description: "Get a random waifu image from the API waifuim",
-  async execute(bot, msg) {
-    const chatId = msg.chat.id;
+  description: "Get a random waifu image from the API WaifuIM",
+  async execute(ctx) {
+    const chatId = ctx.chat.id;
     if (!isAuthorized(chatId)) return;
+
     try {
-      const response = await axios.get(`${process.env.waifuim}/search?included_tags=waifu`);
-      const imageUrl = response.data.images[0].url;
-      bot.sendPhoto(chatId, imageUrl);
-    } catch (error) {
-      console.error(error);
-      bot.sendMessage(chatId, "Failed to retrieve data.");
+      const response = await axios.get(`${process.env.waifuim}/search?included_tags=waifu`, { timeout: 8000 });
+      const imageUrl = response.data?.images?.[0]?.url;
+
+      if (!imageUrl) {
+        return ctx.reply("❌ Failed to retrieve a valid image from WaifuIM.");
+      }
+
+      await ctx.replyWithPhoto(imageUrl);
+    } catch {
+      await ctx.reply("❌ Failed to retrieve data from WaifuIM.");
     }
   },
 };

@@ -5,13 +5,14 @@ module.exports = {
   name: "fjl",
   description: "Hitung transaksi FJL (saldo, cash, profit, dompet)",
 
-  async execute(bot, msg, args) {
-    const chatId = msg.chat.id;
+  async execute(ctx) {
+    const chatId = ctx.chat.id;
     if (!privat(chatId)) return;
 
+    const args = (ctx.message.text || "").trim().split(" ").slice(1);
+
     if (args.length < 3) {
-      return bot.sendMessage(
-        chatId,
+      return ctx.reply(
         "Usage: /fjl <pengeluaran_saldo> <pemasukan_cash> <informasi>"
       );
     }
@@ -21,8 +22,7 @@ module.exports = {
     const information = args.slice(2).join(" ");
 
     if (isNaN(pengeluaran) || isNaN(pemasukan) || !information) {
-      return bot.sendMessage(
-        chatId,
+      return ctx.reply(
         "❌ Format salah.\nContoh:\n/fjl 5500 7000 Isi pulsa 5k"
       );
     }
@@ -31,23 +31,21 @@ module.exports = {
       await updateFJL(pengeluaran, pemasukan, information);
 
     if (error) {
-      return bot.sendMessage(chatId, "❌ Gagal update balance. Coba lagi nanti.");
+      return ctx.reply("❌ Gagal update balance. Coba lagi nanti.");
     }
 
-    // Chat atas → ringkas (seperti nota kecil)
     const header = `✅ Transaksi berhasil:
 📝 ${information}
 💸 Modal: Rp${pengeluaran.toLocaleString("id-ID")}
 💰 Bayar: Rp${pemasukan.toLocaleString("id-ID")}
 📊 Profit: Rp${newProfit.toLocaleString("id-ID")}`;
 
-    // Chat bawah → kondisi balance terbaru
     const detail = `\n\n📌 Update Balance:
 🏦 FJLSALDO: Rp${newFjlsaldo.toLocaleString("id-ID")}
 💰 FJLCASH: Rp${newFjlcash.toLocaleString("id-ID")}
 📊 FJLPROFIT: Rp${newProfit.toLocaleString("id-ID")}
 👛 DOMPET: Rp${newDompet.toLocaleString("id-ID")}`;
 
-    bot.sendMessage(chatId, header + detail);
+    return ctx.reply(header + detail);
   },
 };

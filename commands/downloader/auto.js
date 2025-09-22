@@ -4,14 +4,16 @@ const axios = require("axios");
 const { exec } = require("child_process");
 const path = require("path");
 const fs = require("fs");
+const { InputFile } = require("grammy");
 
 module.exports = {
   name: "auto",
-  async execute(bot, msg) {
-    const chatId = msg.chat.id;
+  async execute(ctx) {
+    const chatId = ctx.chat?.id;
+    if (!chatId) return;
     if (!isAuthorized(chatId)) return;
 
-    const text = msg.text;
+    const text = ctx.message?.text?.trim();
     if (!text) return;
 
     const tiktokRegex =
@@ -29,32 +31,68 @@ module.exports = {
     const isAuto = await isAutoEnabled(chatId);
     if (!isAuto) return;
 
-    await bot.deleteMessage(chatId, msg.message_id);
+    // delete original (user) message (best-effort)
+    try {
+      await ctx.api.deleteMessage(chatId, ctx.message.message_id);
+    } catch (err) {
+      // ignore if can't delete
+      console.warn("Could not delete original message:", err?.message);
+    }
 
     const input = text;
     let statusMessage = null;
 
-    const sendOrEditStatus = async (text) => {
+    const sendOrEditStatus = async (newText) => {
       if (!statusMessage) {
-        statusMessage = await bot.sendMessage(chatId, text);
+        try {
+          statusMessage = await ctx.reply(newText);
+        } catch (e) {
+          // fallback: use api.sendMessage
+          statusMessage = await ctx.api.sendMessage(chatId, newText);
+        }
       } else {
-        await bot.editMessageText(text, {
-          chat_id: chatId,
-          message_id: statusMessage.message_id,
-        });
+        try {
+          await ctx.api.editMessageText(
+            chatId,
+            statusMessage.message_id,
+            newText
+          );
+        } catch (e) {
+          // ignore edit failure
+        }
       }
     };
 
     const deleteStatus = async () => {
       if (statusMessage) {
         await new Promise((res) => setTimeout(res, 1000));
-        await bot.deleteMessage(chatId, statusMessage.message_id);
+        try {
+          await ctx.api.deleteMessage(chatId, statusMessage.message_id);
+        } catch (e) {
+          // ignore
+        }
         statusMessage = null;
       }
     };
 
-    const format = (n) => n?.toLocaleString?.("en-US") || "0";
+    const toNumberFormat = (n) =>
+      n === undefined || n === null
+        ? "0"
+        : n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+    function formatSize(bytes) {
+      if (!bytes && bytes !== 0) return "0 B";
+      bytes = Number(bytes);
+      if (Number.isNaN(bytes)) return "0 B";
+      if (bytes < 1024) return bytes + " B";
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
+      if (bytes < 1024 * 1024 * 1024)
+        return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+    }
+
     const chunkArray = (arr, size) => {
+      if (!Array.isArray(arr)) return [];
       const result = [];
       for (let i = 0; i < arr.length; i += size) {
         result.push(arr.slice(i, i + size));
@@ -62,96 +100,92 @@ module.exports = {
       return result;
     };
 
-    function formatSize(bytes) {
-      if (bytes < 1024) return bytes + " B";
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + " KB";
-      return (bytes / (1024 * 1024)).toFixed(2) + " MB";
-    }
+    // -------------------- HANDLERS --------------------
 
-    const tthandler1 = async (data) => {
-      if (typeof data === "object" && data !== null && data.result) {
-        const playCount = data.result.play_count || 0;
-        const commentCount = data.result.comment_count || 0;
-        const shareCount = data.result.share_count || 0;
-        const downloadCount = data.result.download_count || 0;
-        const sizeInBytes = data.result.hd_size || 0;
-
-        const formatNumber = (num) => {
-          return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-        };
-
-        const caption = `
-Play Count: ${formatNumber(playCount)}
-Comment Count: ${formatNumber(commentCount)}
-Share Count: ${formatNumber(shareCount)}
-Download Count: ${formatNumber(downloadCount)}
-Size: ${formatSize(sizeInBytes)}
-    `.trim();
-
-        const images = data.result.images || [];
-
-        if (images.length > 0) {
-          const maxImagesPerGroup = 10;
-
-          for (let i = 0; i < images.length; i += maxImagesPerGroup) {
-            const chunk = images.slice(i, i + maxImagesPerGroup);
-
-            const mediaGroup = chunk.map((url, idx) => ({
-              type: "photo",
-              media: url,
-              ...(idx === 0 ? { caption, parse_mode: "Markdown" } : {}),
-            }));
-
-            await bot.sendMediaGroup(chatId, mediaGroup);
-          }
-        } else {
-          const hdPlayUrl =
-            data.result.hdplay || data.result.play || data.result.wmplay;
-          if (
-            !hdPlayUrl ||
-            typeof hdPlayUrl !== "string" ||
-            !hdPlayUrl.startsWith("http")
-          ) {
-            throw new Error("Invalid HD play URL from API: " + hdPlayUrl);
-          }
-
-          const videoCaption = caption;
-          await bot.sendVideo(chatId, hdPlayUrl, { caption: videoCaption });
-        }
-      } else {
+    // TikTok handler variations
+    const tthandler1 = async (ctx, chatId, data) => {
+      if (!data || typeof data !== "object" || !data.result) {
         throw new Error("Invalid data format: missing expected properties.");
       }
+      const r = data.result;
+      const playCount = r.play_count || 0;
+      const commentCount = r.comment_count || 0;
+      const shareCount = r.share_count || 0;
+      const downloadCount = r.download_count || 0;
+      const sizeInBytes = r.hd_size || 0;
+
+      const caption = [
+        `Play Count: ${toNumberFormat(playCount)}`,
+        `Comment Count: ${toNumberFormat(commentCount)}`,
+        `Share Count: ${toNumberFormat(shareCount)}`,
+        `Download Count: ${toNumberFormat(downloadCount)}`,
+        `Size: ${formatSize(sizeInBytes)}`,
+      ].join("\n");
+
+      const images = Array.isArray(r.images) ? r.images : [];
+
+      if (images.length > 0) {
+        const groups = chunkArray(images, 10);
+        for (const grp of groups) {
+          const mediaGroup = grp.map((url, idx) => ({
+            type: "photo",
+            media: url,
+            ...(idx === 0 ? { caption, parse_mode: "Markdown" } : {}),
+          }));
+          await ctx.api.sendMediaGroup(chatId, mediaGroup);
+        }
+        return;
+      }
+
+      const hdPlayUrl = r.hdplay || r.play || r.wmplay;
+      if (
+        !hdPlayUrl ||
+        typeof hdPlayUrl !== "string" ||
+        !hdPlayUrl.startsWith("http")
+      ) {
+        throw new Error("Invalid HD play URL from API.");
+      }
+      await ctx.api.sendVideo(chatId, hdPlayUrl, {
+        caption,
+        parse_mode: "Markdown",
+        supports_streaming: true,
+      });
     };
 
-    const tthandler2 = async (data) => {
-      const statsOnly = `Views: ${format(data.metadata?.view)}
-Comments: ${format(data.metadata?.comment)}
-Shares: ${format(data.metadata?.share)}
-Downloads: ${format(data.metadata?.download)}`;
+    const tthandler2 = async (ctx, chatId, data) => {
+      if (!data || typeof data !== "object" || !data.metadata) {
+        throw new Error("Invalid data format: metadata missing.");
+      }
+      const md = data.metadata;
+      const statsOnly = [
+        `Views: ${toNumberFormat(md.view)}`,
+        `Comments: ${toNumberFormat(md.comment)}`,
+        `Shares: ${toNumberFormat(md.share)}`,
+        `Downloads: ${toNumberFormat(md.download)}`,
+      ].join("\n");
+
       const caption = `${
-        data.metadata?.durasi > 0 ? `Duration: ${data.metadata.durasi}s\n` : ""
+        md.durasi && md.durasi > 0 ? `Duration: ${md.durasi}s\n` : ""
       }${statsOnly}`;
 
       if (
         Array.isArray(data.media?.image_slide) &&
         data.media.image_slide.length > 0
       ) {
-        const chunks = chunkArray(data.media.image_slide, 10);
-        for (let i = 0; i < chunks.length; i++) {
-          const mediaGroup = chunks[i].map((url, idx) => ({
+        const groups = chunkArray(data.media.image_slide, 10);
+        for (const grp of groups) {
+          const mediaGroup = grp.map((url, idx) => ({
             type: "photo",
             media: url,
-            ...(i === 0 && idx === 0
-              ? { caption, parse_mode: "Markdown" }
-              : {}),
+            ...(idx === 0 ? { caption, parse_mode: "Markdown" } : {}),
           }));
-          await bot.sendMediaGroup(chatId, mediaGroup);
+          await ctx.api.sendMediaGroup(chatId, mediaGroup);
         }
         return;
       }
 
-      if (data.media?.play && data.metadata?.durasi > 0) {
-        await bot.sendVideo(chatId, data.media.play, {
+      if (data.media?.play && md.durasi > 0) {
+        await ctx.api.sendVideo(chatId, data.media.play, {
           caption,
           parse_mode: "Markdown",
           supports_streaming: true,
@@ -162,38 +196,48 @@ Downloads: ${format(data.metadata?.download)}`;
       throw new Error("API 2 returned no valid downloadable content.");
     };
 
-    const tthandler3 = async (data) => {
-      const statsOnly = `Views: ${data.stats?.views || "?"}
-Comments: ${data.stats?.comment || "?"}
-Shares: ${data.stats?.share || "?"}
-Downloads: ${data.stats?.download || "?"}`;
+    const tthandler3 = async (ctx, chatId, data) => {
+      if (!data || typeof data !== "object") {
+        throw new Error("Invalid API 3 data.");
+      }
+      const photos = Array.isArray(data.data)
+        ? data.data.filter((item) => item.type === "photo")
+        : [];
+      const video = Array.isArray(data.data)
+        ? data.data.find((item) => item.type === "nowatermark")
+        : null;
+
+      const statsOnly = [
+        `Views: ${data.stats?.views ?? "?"}`,
+        `Comments: ${data.stats?.comment ?? "?"}`,
+        `Shares: ${data.stats?.share ?? "?"}`,
+        `Downloads: ${data.stats?.download ?? "?"}`,
+      ].join("\n");
+
       const caption = `${
-        data.durations > 0 ? `Duration: ${data.durations}s\n` : ""
+        data.durations && data.durations > 0
+          ? `Duration: ${data.durations}s\n`
+          : ""
       }${statsOnly}`;
 
-      const photos = data.data?.filter((item) => item.type === "photo");
-      const video = data.data?.find((item) => item.type === "nowatermark");
-
-      if (photos?.length > 0) {
-        const chunks = chunkArray(
+      if (photos.length > 0) {
+        const groups = chunkArray(
           photos.map((p) => p.url),
           10
         );
-        for (let i = 0; i < chunks.length; i++) {
-          const mediaGroup = chunks[i].map((url, idx) => ({
+        for (const grp of groups) {
+          const mediaGroup = grp.map((url, idx) => ({
             type: "photo",
             media: url,
-            ...(i === 0 && idx === 0
-              ? { caption, parse_mode: "Markdown" }
-              : {}),
+            ...(idx === 0 ? { caption, parse_mode: "Markdown" } : {}),
           }));
-          await bot.sendMediaGroup(chatId, mediaGroup);
+          await ctx.api.sendMediaGroup(chatId, mediaGroup);
         }
         return;
       }
 
       if (video?.url && data.durations > 0) {
-        await bot.sendVideo(chatId, video.url, {
+        await ctx.api.sendVideo(chatId, video.url, {
           caption,
           parse_mode: "Markdown",
           supports_streaming: true,
@@ -204,73 +248,76 @@ Downloads: ${data.stats?.download || "?"}`;
       throw new Error("API 3 returned no valid downloadable content.");
     };
 
-    const fbHandler1 = async (data) => {
-      const hdMp4Video = data.data?.find(
+    // Facebook handlers
+    const fbHandler1 = async (ctx, chatId, data) => {
+      if (!data || !Array.isArray(data.data))
+        throw new Error("Invalid FB API 1 format.");
+      const hdMp4Video = data.data.find(
         (item) => item.format === "mp4" && item.resolution === "HD"
       );
-
-      if (!hdMp4Video?.url) {
-        throw new Error("HD MP4 video URL is not available.");
-      }
-      const videoUrl = hdMp4Video.url;
-      await bot.sendVideo(chatId, videoUrl);
+      if (!hdMp4Video?.url) throw new Error("HD MP4 URL not found.");
+      await ctx.api.sendVideo(chatId, hdMp4Video.url);
     };
 
-    const fbHandler2 = async (data) => {
-      const videoUrl = data.media?.[2];
+    const fbHandler2 = async (ctx, chatId, data) => {
+      if (!data) throw new Error("Invalid FB API 2 format.");
+      const videoUrl = data.media?.[2] || data.media?.[0] || null;
       if (!videoUrl) throw new Error("No HD video URL found in API 2.");
-      await bot.sendVideo(chatId, videoUrl);
+      await ctx.api.sendVideo(chatId, videoUrl);
     };
 
-    const fbHandler3 = async (data) => {
-      const videoUrl = data.hd_url;
-      if (!videoUrl) throw new Error("No HD video URL found in API 3.");
-      await bot.sendVideo(chatId, videoUrl);
+    const fbHandler3 = async (ctx, chatId, data) => {
+      if (!data) throw new Error("Invalid FB API 3 format.");
+      const videoUrl = data.hd_url || data.sd_url;
+      if (!videoUrl) throw new Error("No video URL found in API 3.");
+      await ctx.api.sendVideo(chatId, videoUrl);
     };
 
-    const igHandler1 = async (data) => {
-      const results = Array.isArray(data?.result) ? data.result : [];
+    // Instagram handlers
+    const igHandler1 = async (ctx, chatId, data) => {
+      if (!data || !Array.isArray(data.result))
+        throw new Error("Invalid IG API 1 format.");
+      const results = data.result;
+      if (!results.length) throw new Error("IG API 1 returned empty media.");
 
-      if (results.length === 0) {
-        throw new Error("IG API 1 returned invalid or empty media.");
-      }
+      const urls = results.map((i) => i?.url).filter(Boolean);
+      if (!urls.length) throw new Error("No valid media URLs in IG API 1.");
 
-      const urls = results
-        .map((item) => item?.url)
-        .filter((u) => typeof u === "string" && u.length > 0);
+      const video = urls.find((u) => u.includes(".mp4"));
+      const photos = urls.filter((u) => !u.includes(".mp4"));
 
-      if (urls.length === 0) {
-        throw new Error("No valid media URLs found.");
-      }
-
-      const videoUrls = urls.filter((u) => u.includes(".mp4"));
-      const photoUrls = urls.filter((u) => !u.includes(".mp4"));
-
-      if (videoUrls.length) {
-        await bot.sendVideo(chatId, videoUrls[0]);
+      if (video) {
+        await ctx.api.sendVideo(chatId, video);
         return;
       }
 
-      if (photoUrls.length) {
-        const mediaGroup = photoUrls.slice(0, 10).map((img) => ({
-          type: "photo",
-          media: img,
-        }));
-        await bot.sendMediaGroup(chatId, mediaGroup);
+      if (photos.length) {
+        const groups = chunkArray(photos, 10);
+        for (const grp of groups) {
+          const mediaGroup = grp.map((url) => ({ type: "photo", media: url }));
+          await ctx.api.sendMediaGroup(chatId, mediaGroup);
+        }
         return;
       }
 
-      throw new Error("IG API 1 returned unsupported media type.");
+      throw new Error("IG API 1 returned unsupported media.");
     };
 
-    const igHandler2 = async (data) => {
+    const igHandler2 = async (ctx, chatId, data) => {
+      if (!data || typeof data !== "object")
+        throw new Error("Invalid IG API 2 format.");
       const result = data.result || {};
-      const mediaUrls = result.url || [];
-      const isVideo = result.isVideo;
-      const caption = `${format(result.like)} Likes`;
+      const mediaUrls = Array.isArray(result.url)
+        ? result.url
+        : typeof result.url === "string"
+        ? [result.url]
+        : [];
+      const isVideo = !!result.isVideo;
 
-      if (isVideo && mediaUrls.length > 0) {
-        await bot.sendVideo(chatId, mediaUrls[0], {
+      const caption = `${toNumberFormat(result.like)} Likes`;
+
+      if (isVideo && mediaUrls.length) {
+        await ctx.api.sendVideo(chatId, mediaUrls[0], {
           caption,
           parse_mode: "Markdown",
           supports_streaming: true,
@@ -278,17 +325,15 @@ Downloads: ${data.stats?.download || "?"}`;
         return;
       }
 
-      if (!isVideo && mediaUrls.length > 0) {
-        const chunks = chunkArray(mediaUrls, 10);
-        for (let i = 0; i < chunks.length; i++) {
-          const mediaGroup = chunks[i].map((url, idx) => ({
+      if (!isVideo && mediaUrls.length) {
+        const groups = chunkArray(mediaUrls, 10);
+        for (const grp of groups) {
+          const mediaGroup = grp.map((url, idx) => ({
             type: "photo",
             media: url,
-            ...(i === 0 && idx === 0
-              ? { caption, parse_mode: "Markdown" }
-              : {}),
+            ...(idx === 0 ? { caption, parse_mode: "Markdown" } : {}),
           }));
-          await bot.sendMediaGroup(chatId, mediaGroup);
+          await ctx.api.sendMediaGroup(chatId, mediaGroup);
         }
         return;
       }
@@ -296,44 +341,41 @@ Downloads: ${data.stats?.download || "?"}`;
       throw new Error("IG API 2 returned no valid media.");
     };
 
-    const igHandler3 = async (data) => {
+    const igHandler3 = async (ctx, chatId, data) => {
       const mediaItems = Array.isArray(data?.result?.response?.data)
         ? data.result.response.data
         : [];
-
-      if (mediaItems.length === 0) {
+      if (!mediaItems.length)
         throw new Error("IG API 3 returned empty media array.");
-      }
 
-      const images = mediaItems.filter((i) => i.type === "image");
-      const videos = mediaItems.filter((i) => i.type === "video");
+      const images = mediaItems
+        .filter((i) => i.type === "image")
+        .map((i) => i.url);
+      const videos = mediaItems
+        .filter((i) => i.type === "video")
+        .map((i) => i.url);
 
-      if (videos.length > 0) {
-        await bot.sendVideo(chatId, videos[0].url, {
+      if (videos.length) {
+        await ctx.api.sendVideo(chatId, videos[0], {
           supports_streaming: true,
         });
         return;
       }
 
-      if (images.length > 0) {
-        const mediaUrls = images.map((i) => i.url);
-        const chunks = chunkArray(mediaUrls, 10);
-
-        for (let i = 0; i < chunks.length; i++) {
-          const mediaGroup = chunks[i].map((url) => ({
-            type: "photo",
-            media: url,
-          }));
-          await bot.sendMediaGroup(chatId, mediaGroup);
+      if (images.length) {
+        const groups = chunkArray(images, 10);
+        for (const grp of groups) {
+          const mediaGroup = grp.map((u) => ({ type: "photo", media: u }));
+          await ctx.api.sendMediaGroup(chatId, mediaGroup);
         }
-
         return;
       }
+
       throw new Error("IG API 3 returned unsupported media.");
     };
 
     // helper fallback
-    function ytDlpFallback(bot, chatId, url) {
+    async function ytDlpFallback(ctx, url) {
       return new Promise((resolve) => {
         const outputDir = path.resolve(__dirname, "../../yt-dlp");
         if (!fs.existsSync(outputDir)) {
@@ -348,21 +390,16 @@ Downloads: ${data.stats?.download || "?"}`;
           `yt-dlp -f "bestvideo+bestaudio/best" --merge-output-format mp4 --write-thumbnail -o "${basePath}.%(ext)s" "${url}"`,
           async (error) => {
             if (error) {
-              await bot.sendMessage(
-                chatId,
-                `❌ yt-dlp error: ${error.message}`
-              );
+              await ctx.reply(`❌ yt-dlp error: ${error.message}`);
               return resolve(false);
             }
 
             try {
-              // send video results
-              await bot.sendVideo(chatId, outputFile);
+              await ctx.replyWithVideo(new InputFile(outputFile));
 
-              // cleanup all files with the same prefix
+              // cleanup
               const dir = path.dirname(basePath);
               const baseName = path.basename(basePath);
-
               for (const file of fs.readdirSync(dir)) {
                 if (file.startsWith(baseName)) {
                   fs.unlinkSync(path.join(dir, file));
@@ -371,15 +408,11 @@ Downloads: ${data.stats?.download || "?"}`;
 
               resolve(true);
             } catch (err) {
-              await bot.sendMessage(
-                chatId,
-                `❌ Gagal kirim video: ${err.message}`
-              );
+              await ctx.reply(`❌ Gagal kirim video: ${err.message}`);
 
-              // keep cleanup even if delivery fails
+              // tetap cleanup
               const dir = path.dirname(basePath);
               const baseName = path.basename(basePath);
-
               for (const file of fs.readdirSync(dir)) {
                 if (file.startsWith(baseName)) {
                   fs.unlinkSync(path.join(dir, file));
@@ -393,6 +426,7 @@ Downloads: ${data.stats?.download || "?"}`;
       });
     }
 
+    // -------------------- MAIN FLOW (3 API attempts + fallback) --------------------
     try {
       await sendOrEditStatus("📡 Trying API 1...");
 
@@ -400,18 +434,15 @@ Downloads: ${data.stats?.download || "?"}`;
         const res1 = await axios.get(
           `${process.env.siputzx}/api/d/facebook?url=${encodeURIComponent(
             input
-          )}`
+          )}`,
+          { timeout: 10000 }
         );
-
         const data1 = res1.data?.data;
-
-        if (!res1.data?.status || !data1 || !Array.isArray(data1.data)) {
+        if (!res1.data?.status || !data1)
           throw new Error(
-            "API 1 (Siputzx - Facebook) returned an invalid response."
+            "API 1 (Siputzx - Facebook) returned invalid response"
           );
-        }
-
-        await fbHandler1(data1);
+        await fbHandler1(ctx, chatId, data1);
         await deleteStatus();
         return;
       }
@@ -421,42 +452,37 @@ Downloads: ${data.stats?.download || "?"}`;
           `${
             process.env.diioffc
           }/api/download/instagram?url=${encodeURIComponent(input)}`,
-          { timeout: 8000 }
+          { timeout: 10000 }
         );
         const data1 = res1.data;
-
         if (
           !data1?.status ||
           !Array.isArray(data1.result) ||
           data1.result.length === 0
-        ) {
+        )
           throw new Error(
-            "API 1 (diioffc - Instagram) returned an invalid response."
+            "API 1 (diioffc - Instagram) returned invalid response"
           );
-        }
-
-        await igHandler1(data1);
+        await igHandler1(ctx, chatId, data1);
         await deleteStatus();
         return;
       }
 
+      // TikTok API 1
       const res1 = await axios.get(
         `${process.env.diioffc}/api/download/tiktok?url=${encodeURIComponent(
           input
-        )}`
+        )}`,
+        { timeout: 10000 }
       );
       const data1 = res1.data?.result;
-      if (!res1.data?.status || !data1) {
-        throw new Error(
-          "API 1 (diioffc - Tiktok) returned an invalid response."
-        );
-      }
-
-      await tthandler1({ result: data1 });
+      if (!res1.data?.status || !data1)
+        throw new Error("API 1 (diioffc - Tiktok) returned invalid response");
+      await tthandler1(ctx, chatId, { result: data1 });
       await deleteStatus();
       return;
     } catch (e1) {
-      console.warn("⚠️ API 1 failed:", e1.message);
+      console.warn("⚠️ API 1 failed:", e1?.message);
       try {
         await sendOrEditStatus("📡 API 1 failed. Trying API 2...");
 
@@ -465,14 +491,14 @@ Downloads: ${data.stats?.download || "?"}`;
             `${
               process.env.archive
             }/api/download/facebook?url=${encodeURIComponent(input)}`,
-            { timeout: 8000 }
+            { timeout: 10000 }
           );
           const result2 = res2.data?.result;
-          if (!res2.data?.status || !result2?.media)
+          if (!res2.data?.status || !result2)
             throw new Error(
-              "API 2 (Archive - Facebook) returned an invalid response."
+              "API 2 (Archive - Facebook) returned invalid response"
             );
-          await fbHandler2(result2);
+          await fbHandler2(ctx, chatId, result2);
           await deleteStatus();
           return;
         }
@@ -482,47 +508,47 @@ Downloads: ${data.stats?.download || "?"}`;
             `${
               process.env.archive
             }/api/download/instagram?url=${encodeURIComponent(input)}`,
-            { timeout: 8000 }
+            { timeout: 10000 }
           );
           const data2 = res2.data;
-          if (!data2?.status || !data2.result?.url?.length)
+          if (!data2?.status || !data2.result)
             throw new Error(
-              "API 2 (Archive - Instagram) returned an invalid response."
+              "API 2 (Archive - Instagram) returned invalid response"
             );
-          await igHandler2(data2);
+          await igHandler2(ctx, chatId, data2);
           await deleteStatus();
           return;
         }
 
+        // TikTok API 2
         const res2 = await axios.get(
           `${process.env.archive}/api/download/tiktok?url=${encodeURIComponent(
             input
           )}`,
-          { timeout: 8000 }
+          { timeout: 10000 }
         );
         const result2 = res2.data?.result;
-        if (!res2.data?.status || !result2?.media)
-          throw new Error(
-            "API 2 (Archive - Tiktok) returned an invalid response."
-          );
-        await tthandler2(result2);
+        if (!res2.data?.status || !result2)
+          throw new Error("API 2 (Archive - Tiktok) returned invalid response");
+        await tthandler2(ctx, chatId, result2);
         await deleteStatus();
+        return;
       } catch (e2) {
-        console.warn("⚠️ API 2 failed:", e2.message);
+        console.warn("⚠️ API 2 failed:", e2?.message);
         try {
           await sendOrEditStatus("📡 API 2 failed. Trying API 3...");
 
           if (isFacebook) {
             const res3 = await axios.get(
               `${process.env.vreden}/api/fbdl?url=${encodeURIComponent(input)}`,
-              { timeout: 8000 }
+              { timeout: 10000 }
             );
             const result3 = res3.data?.data;
-            if (!result3?.status || !result3?.sd_url)
+            if (!result3)
               throw new Error(
-                "API 3 (Vreden - Facebook) returned an invalid response."
+                "API 3 (Vreden - Facebook) returned invalid response"
               );
-            await fbHandler3(result3);
+            await fbHandler3(ctx, chatId, result3);
             await deleteStatus();
             return;
           }
@@ -532,42 +558,47 @@ Downloads: ${data.stats?.download || "?"}`;
               `${process.env.vreden}/api/igdownload?url=${encodeURIComponent(
                 input
               )}`,
-              { timeout: 8000 }
+              { timeout: 10000 }
             );
             const data3 = res3.data;
-
-            if (data3?.status !== 200 || !data3?.result?.response?.status)
+            if (!data3?.status || !data3?.result)
               throw new Error(
-                "API 3 (Vreden - Instagram) returned an invalid response."
+                "API 3 (Vreden - Instagram) returned invalid response"
               );
-            await igHandler3(data3);
+            await igHandler3(ctx, chatId, data3);
             await deleteStatus();
             return;
           }
 
+          // TikTok API 3
           const res3 = await axios.get(
             `${process.env.vreden}/api/tiktok?url=${encodeURIComponent(input)}`,
-            { timeout: 8000 }
+            { timeout: 10000 }
           );
           const result3 = res3.data?.result;
           if (!res3.data?.status || !result3)
             throw new Error(
-              "API 3 (Vreden - Tiktok) returned an invalid response."
+              "API 3 (Vreden - Tiktok) returned invalid response"
             );
-          await tthandler3(result3);
+          await tthandler3(ctx, chatId, result3);
           await deleteStatus();
+          return;
         } catch (e3) {
-          console.error("⚠️ API 3 failed:", e3.message);
+          console.error("⚠️ API 3 failed:", e3?.message);
 
           try {
-            await sendOrEditStatus(`⚠️ All APIs failed. Fallback to yt-dlp...`);
-            const success = await ytDlpFallback(bot, chatId, input);
+            await sendOrEditStatus("⚠️ All APIs failed. Fallback to yt-dlp...");
+            const success = await ytDlpFallback(ctx, input);
             if (!success) throw new Error("yt-dlp fallback failed.");
             await deleteStatus();
+            return;
           } catch (e4) {
-            console.error("❌ yt-dlp fallback failed:", e4.message);
-            await sendOrEditStatus("❌ All APIs and yt-dlp fallback failed.");
+            console.error("❌ yt-dlp fallback failed:", e4?.message);
+            try {
+              await sendOrEditStatus("❌ All APIs and yt-dlp fallback failed.");
+            } catch (e) {}
             await deleteStatus();
+            return;
           }
         }
       }
