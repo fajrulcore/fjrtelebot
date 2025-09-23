@@ -58,7 +58,4 @@ jobs:
 
       - name: Run bot for 6h
         run: |
-          pnpm run start &
-          BOT_PID=$!
-          sleep 21600
-          kill $BOT_PID || true
+          pnpm run start
