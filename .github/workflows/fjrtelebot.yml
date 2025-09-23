@@ -34,29 +34,33 @@ jobs:
     steps:
       - name: Setup & Install
         run: |
-          # Checkout repository
+          echo "::group::Checkout repository"
           git clone $GITHUB_SERVER_URL/$GITHUB_REPOSITORY .
-          
-          # Setup Node.js (manual pakai nvm biar satu blok aja)
-          curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-          export NVM_DIR="$HOME/.nvm"
-          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-          nvm install 22
-          
-          # Setup FFmpeg
+          echo "::endgroup::"
+
+          echo "::group::Setup Node.js"
+          curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+          echo "::endgroup::"
+
+          echo "::group::Setup FFmpeg"
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-          
-          # Install pnpm
+          echo "::endgroup::"
+
+          echo "::group::Install pnpm"
           npm install -g pnpm
-          
-          # Install dependencies
+          echo "::endgroup::"
+
+          echo "::group::Install dependencies"
           pnpm install
-          
-          # Install yt-dlp (binary)
+          echo "::endgroup::"
+
+          echo "::group::Install yt-dlp (binary)"
           sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
           yt-dlp --version
+          echo "::endgroup::"
 
       - name: Run bot for 6h
         run: |
