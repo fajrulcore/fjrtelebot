@@ -33,34 +33,20 @@ jobs:
 
     steps:
       - name: Setup & Install
-        run: |
-          echo "::group::Checkout repository"
-          git clone $GITHUB_SERVER_URL/$GITHUB_REPOSITORY .
-          echo "::endgroup::"
+        uses: actions/checkout@v4
 
-          echo "::group::Setup Node.js"
-          curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-          sudo apt-get install -y nodejs
-          echo "::endgroup::"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-          echo "::group::Setup FFmpeg"
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-          echo "::endgroup::"
+      - uses: FedericoCarboni/setup-ffmpeg@v2
 
-          echo "::group::Install pnpm"
+      - run: |
           npm install -g pnpm
-          echo "::endgroup::"
-
-          echo "::group::Install dependencies"
           pnpm install
-          echo "::endgroup::"
-
-          echo "::group::Install yt-dlp (binary)"
           sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
           yt-dlp --version
-          echo "::endgroup::"
 
       - name: Run bot for 6h
         run: |
