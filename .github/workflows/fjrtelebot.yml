@@ -32,22 +32,33 @@ jobs:
       waifupics: ${{ secrets.waifupics }}
 
     steps:
-      - name: Setup & Install
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - uses: FedericoCarboni/setup-ffmpeg@v2
+      - name: Setup FFmpeg
+        uses: FedericoCarboni/setup-ffmpeg@v2
 
-      - run: |
-          npm install -g pnpm
-          pnpm install
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install yt-dlp (binary)
+        run: |
           sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
           yt-dlp --version
 
       - name: Run bot for 6h
         run: |
-          timeout 6h pnpm run start
+          pnpm run start &
+          BOT_PID=$!
+          sleep 21600
+          kill $BOT_PID || true
